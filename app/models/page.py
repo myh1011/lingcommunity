@@ -2,7 +2,9 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
-from .page_tag import page_tags
+
+# 导入 page_tags 表
+from app.models.page_tag import page_tags
 
 class Page(Base):
     __tablename__ = "pages"
@@ -16,5 +18,5 @@ class Page(Base):
     avatar_url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # 添加标签关系
+    # 添加标签关系 - 注意：使用 Tag 类，通过 page_tags 关联表
     tags = relationship("Tag", secondary=page_tags, backref="pages")

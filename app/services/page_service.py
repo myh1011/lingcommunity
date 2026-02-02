@@ -8,6 +8,7 @@ import shutil
 from app.schemas.page import Pagecreate
 from app.models.page import Page as PageModel
 from app.models.tag import Tag
+# 导入 page_tags 表
 from app.models.page_tag import page_tags
 
 class PageService:
@@ -135,11 +136,10 @@ class PageService:
         """获取所有标签"""
         return self.db.query(Tag).order_by(Tag.name).all()
 
-    def get_popular_tags(self, limit: int = 10) -> List[Tag]:
-        """获取热门标签"""
-        # 使用原生SQL查询标签使用频率
+    def get_popular_tags(self, limit: int = 10) -> List[tuple]:
+        """获取热门标签及其使用次数"""
         from sqlalchemy import func
-        return self.db.query(
+        results = self.db.query(
             Tag, 
             func.count(page_tags.c.page_id).label('count')
         ).join(
@@ -149,3 +149,5 @@ class PageService:
         ).order_by(
             func.count(page_tags.c.page_id).desc()
         ).limit(limit).all()
+        
+        return results
