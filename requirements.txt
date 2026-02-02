@@ -1,0 +1,10 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-RESTful
+pydantic
+python-dotenv
+fastapi
+python-multipart       
+pymysql        
+uvicorn

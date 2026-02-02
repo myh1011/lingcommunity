@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LingChat communitymods</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- 在首页也加载 marked + DOMPurify 以渲染预览 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <h1 class="site-title">LingChat communitymods</h1>
+        </div>
+    </header>
+    <main class="container grid">
+        <section class="card form-card">
+            <h2>创建新角色</h2>
+            <form id="create-page-form">
+                <label for="title">名称:</label>
+                <input type="text" id="title" name="title" required>
+
+                <label for="content">介绍:</label>
+                <textarea id="body" name="body" required></textarea>
+
+                <label for="url">下载地址(直链):</label>
+                <input type="text" id="url" name="url" required>
+
+                <button class="btn" type="submit">创建角色</button>
+            </form>
+        </section>
+
+        <section class="list-section">
+            <h2>角色</h2>
+            <ul id="page-list" class="page-list">
+                <!-- 角色列表将通过JavaScript动态加载 -->
+            </ul>
+        </section>
+    </main>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

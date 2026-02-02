@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <h1 class="site-title">{{ title }}</h1>
+            <div>
+                <span id="auth-info"></span>
+                <a class="btn small" href="/">返回首页</a>
+                <a class="btn small" href="/pages">浏览更多</a>
+            </div>
+        </div>
+    </header>
+    <main class="container">
+        <article class="card page-card">
+            <div class="page-card-with-avatar">
+                <div class="avatar-container">
+                    <div class="avatar-image">
+                        {% if avatar_url %}
+                            <img src="{{ avatar_url }}" alt="{{ title }} 头像">
+                        {% else %}
+                            <div class="avatar-placeholder">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="page-card-content">
+                    <h2 class="page-title">{{ title }}</h2>
+                    <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+                        <div style="color:var(--muted);">
+                            <i class="fas fa-user"></i> 上传者: {{ uploader or '匿名' }}
+                        </div>
+                        <div style="color:var(--muted);">
+                            <i class="fas fa-calendar"></i> 创建时间: {{ created_at or '未知' }}
+                        </div>
+                    </div>
+                    <div id="body-markdown" class="page-body markdown-body" aria-live="polite">
+                        <!-- Markdown 将由客户端渲染 -->
+                    </div>
+                    <div class="page-footer" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;">
+                        <a class="btn btn-primary" href="{{ url }}" target="_blank" rel="noopener">
+                            <i class="fas fa-download"></i> 访问下载链接
+                        </a>
+                        <button id="copy-link" class="btn subtle">
+                            <i class="fas fa-copy"></i> 复制链接
+                        </button>
+                        {% if current_user == uploader %}
+                        <button id="delete-btn" class="btn btn-danger" data-uid="{{ uid }}">
+                            <i class="fas fa-trash"></i> 删除角色
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <!-- 使用 CDN 的 marked + DOMPurify 渲染并清理 HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+
+    <!-- 将后端数据作为 JSON -->
+    <script id="page-data" type="application/json">{{ {
+        "body": body,
+        "uid": uid,
+        "url": url,
+        "title": title,
+        "uploader": uploader,
+        "current_user": current_user
+    } | tojson }}</script>
+
+    <script>
+      // 从 DOM 中读取数据
+      const pageDataScript = document.getElementById('page-data');
+      const pageData = pageDataScript ? JSON.parse(pageDataScript.textContent || '{}') : {};
+      
+      // 渲染Markdown内容
+      try {
+        const rendered = (window.marked ? marked.parse(pageData.body || '') : pageData.body);
+        const safeHtml = (window.DOMPurify ? DOMPurify.sanitize(rendered) : rendered);
+        document.getElementById('body-markdown').innerHTML = safeHtml;
+      } catch (e) {
+        document.getElementById('body-markdown').textContent = pageData.body;
+      }
+
+      // 复制链接按钮
+      document.getElementById('copy-link')?.addEventListener('click', () => {
+        navigator.clipboard?.writeText(pageData.url).then(() => {
+          alert('链接已复制到剪贴板');
+        }, () => alert('复制失败，请手动复制'));
+      });
+      
+      // 删除按钮
+      document.getElementById('delete-btn')?.addEventListener('click', async () => {
+        const currentUser = localStorage.getItem('auth_user');
+        if (!currentUser) {
+          alert('请先登录');
+          window.location.href = '/login';
+          return;
+        }
+
+        if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/v1/pages/${pageData.uid}`, {
+            method: 'DELETE',
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-User': currentUser
+            }
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => null);
+            alert('删除失败: ' + (err?.detail ?? res.status));
+            return;
+          }
+
+          alert('删除成功');
+          window.location.href = '/pages';
+        } catch (err) {
+          console.error('Error deleting page:', err);
+          alert('删除时出错');
+        }
+      });
+      
+      // 显示登录状态
+      (function(){
+        const authUser = localStorage.getItem('auth_user');
+        const authInfoEl = document.getElementById('auth-info');
+        if (authUser) {
+          authInfoEl.textContent = '已登录：' + authUser;
+        } else {
+          authInfoEl.textContent = '';
+        }
+      })();
+    </script>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

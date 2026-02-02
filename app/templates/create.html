@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <title>创建角色 - LingChat communitymods</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <h1 class="site-title">创建角色</h1>
+      <div>
+        <span id="auth-info"></span>
+        <a class="btn small" href="/">返回</a>
+        <a id="auth-link" class="btn small" href="/login">登录</a>
+      </div>
+    </div>
+  </header>
+  <main class="container grid">
+    <section class="card form-card">
+      <h2>创建新角色</h2>
+      <form id="create-page-form">
+        <label for="title">角色名称:</label>
+        <input type="text" id="title" name="title" required placeholder="请输入角色名称">
+        
+        <div class="avatar-upload-container">
+          <label for="avatar" class="avatar-upload-label">角色头像 (可选):</label>
+          <input type="file" id="avatar" name="avatar" accept="image/*">
+          <div class="avatar-preview" id="avatar-preview">
+            <div class="avatar-placeholder">
+              <i class="fas fa-user-circle"></i>
+            </div>
+          </div>
+        </div>
+
+        <label for="body">角色介绍:</label>
+        <textarea id="body" name="body" required placeholder="请输入角色介绍，支持Markdown格式..."></textarea>
+
+        <label for="url">下载地址(直链):</label>
+        <input type="text" id="url" name="url" required placeholder="https://example.com/download.zip">
+
+        <!-- uploader 由登录用户自动填充 -->
+        <input type="hidden" id="uploader" name="uploader">
+        <!-- avatar_url 存储上传的头像URL -->
+        <input type="hidden" id="avatar_url" name="avatar_url">
+
+        <button class="btn btn-primary" type="submit">创建角色</button>
+      </form>
+    </section>
+
+    <section class="list-section">
+      <h2>提示</h2>
+      <p>需要先登录才能创建角色。若没有账号，请先 <a href="/register">注册</a>。</p>
+      <p><strong>Markdown 支持:</strong></p>
+      <ul>
+        <li>支持大部分的 Markdown 语法</li>
+        <li>可以使用 <code>![alt text](image_url)</code> 语法插入图片</li>
+        <li>支持代码块、列表、链接等常用格式</li>
+      </ul>
+      <p><strong>关于下载链接:</strong></p>
+      <ul>
+        <li>请确保提供的下载链接是直接可访问的直链。</li>
+        <li>支持常见的文件托管服务，如 GitHub Releases、Modelscope等。</li>
+        <li>请勿使用需要额外跳转或验证码的链接。</li>
+        <li><a href="/download_url" target="_blank">查看如何获取下载链接</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    // 加载 Font Awesome
+    const faScript = document.createElement('script');
+    faScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js';
+    document.head.appendChild(faScript);
+    
+    // 简单前端控制：显示登录状态，若未登录提交时会跳转到 /login
+    (function(){
+      const authUser = localStorage.getItem('auth_user');
+      const authInfoEl = document.getElementById('auth-info');
+      const authLink = document.getElementById('auth-link');
+      if (authUser) {
+        authInfoEl.textContent = '已登录：' + authUser;
+        authLink.textContent = '登出';
+        authLink.href = '#';
+        authLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          localStorage.removeItem('auth_user');
+          window.location.reload();
+        });
+        document.getElementById('uploader').value = authUser;
+      } else {
+        authInfoEl.textContent = '未登录';
+        authLink.textContent = '登录';
+        authLink.href = '/login';
+      }
+    })();
+    
+    // 头像预览功能
+    document.getElementById('avatar').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      const preview = document.getElementById('avatar-preview');
+      
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.innerHTML = `<img src="${e.target.result}" alt="头像预览">`;
+        }
+        reader.readAsDataURL(file);
+      } else {
+        preview.innerHTML = '<div class="avatar-placeholder"><i class="fas fa-user-circle"></i></div>';
+      }
+    });
+  </script>
+</body>
+</html>
