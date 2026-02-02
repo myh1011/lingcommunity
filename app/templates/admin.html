@@ -7,6 +7,26 @@
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 在admin.html的<head>部分添加 -->
+    <script>
+        // 页面加载时检查登录状态并设置查询参数
+        window.onload = function() {
+            const authUser = localStorage.getItem('auth_user');
+            if (authUser) {
+                // 如果已经登录，重定向到带用户参数的URL
+                const currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('user', authUser);
+                window.history.replaceState({}, '', currentUrl);
+                
+                // 更新页面显示
+                document.getElementById('auth-info').textContent = '管理员：' + authUser;
+            } else {
+                // 未登录，跳转到登录页
+                alert('请先登录');
+                window.location.href = '/login?redirect=' + encodeURIComponent('/admin');
+            }
+        };
+    </script>
 </head>
 <body>
     <header class="site-header">
@@ -107,11 +127,47 @@
 
         let dailyStatsData = [];
 
-        // 加载统计数据
+        // 修改admin.html中的loadStats函数
         async function loadStats() {
             try {
-                const res = await fetch('/api/v1/admin/stats');
-                if (!res.ok) throw new Error('获取统计数据失败');
+                const authUser = localStorage.getItem('auth_user');
+                if (!authUser) {
+                    alert('请先登录');
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'X-User': authUser  // 确保这里传递了正确的用户名
+                };
+                
+                console.log('正在请求统计数据，用户:', authUser);
+                
+                const res = await fetch('/api/v1/admin/stats', {
+                    headers: headers
+                });
+                
+                console.log('响应状态:', res.status);
+                
+                if (res.status === 401) {
+                    const error = await res.json();
+                    alert('认证失败: ' + error.detail);
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                if (res.status === 403) {
+                    const error = await res.json();
+                    alert('权限不足: ' + error.detail);
+                    window.location.href = '/';
+                    return;
+                }
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: 获取统计数据失败`);
+                }
+                
                 const data = await res.json();
                 
                 // 更新快速统计
@@ -130,7 +186,7 @@
                 
             } catch (err) {
                 console.error('加载统计数据失败:', err);
-                alert('加载统计数据失败');
+                alert('加载统计数据失败: ' + err.message);
             }
         }
 
