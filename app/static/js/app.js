@@ -1,4 +1,69 @@
+// 在 app.js 文件顶部，将所有函数定义为全局
+window.deletePage = async function(uid) {
+  console.log('开始删除角色，UID:', uid);
+  
+  const currentUser = localStorage.getItem('auth_user');
+  console.log('当前登录用户:', currentUser);
+  
+  if (!currentUser) {
+    alert('请先登录');
+    window.location.href = '/login';
+    return;
+  }
 
+  if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) {
+    return;
+  }
+
+  try {
+    const url = `/api/v1/pages/${uid}`;
+    console.log('请求URL:', url);
+    
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-User': currentUser
+      }
+    });
+
+    console.log('响应状态:', res.status);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.log('响应内容:', errorText);
+      let errorDetail = '未知错误';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetail = errorJson.detail || errorText;
+      } catch {
+        errorDetail = errorText;
+      }
+      alert('删除失败: ' + errorDetail);
+      return;
+    }
+
+    const result = await res.json();
+    console.log('删除成功，响应:', result);
+    alert('删除成功');
+    
+    // 重新加载页面或角色列表
+    if (window.location.pathname === '/' || window.location.pathname === '/pages') {
+      loadPages(); // 重新加载角色列表
+    } else {
+      window.location.href = '/pages'; // 跳转到列表页
+    }
+    
+  } catch (err) {
+    console.error('删除请求异常:', err);
+    alert('删除时出错: ' + err.message);
+  }
+};
+
+// 其他函数也要确保全局可访问
+window.loadPages = async function() {
+  // ... loadPages 函数的代码 ...
+};
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('create-page-form');
   const listEl = document.getElementById('page-list');
