@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('create-page-form');
   const listEl = document.getElementById('page-list');
@@ -21,6 +22,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // 格式化日期
         const createdDate = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '未知';
         
+        // 渲染标签
+        const tagsHtml = p.tags && p.tags.length > 0 ? 
+          `<div class="page-tags" style="margin: 8px 0; display: flex; flex-wrap: wrap; gap: 4px;">
+            ${p.tags.map(tag => `
+              <span style="background: var(--surface); padding: 2px 8px; border-radius: 12px; font-size: 12px; color: var(--muted);">
+                ${escapeHtml(tag)}
+              </span>
+            `).join('')}
+          </div>` : '';
+        
         return `
           <li class="page-card-list-item">
             <article class="card">
@@ -32,9 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="page-card-content">
                   <h3 class="card-title"><a href="/page/${encodeURIComponent(p.uid)}">${escapeHtml(p.title)}</a></h3>
-                  <div class="card-body">
-                    <!-- 列表中不显示 body，详情页显示介绍 -->
-                  </div>
+                  ${tagsHtml}
                   <div class="card-meta">
                     <a class="meta-link" href="${escapeAttr(p.url)}" target="_blank" rel="noopener">
                       <i class="fas fa-download"></i> 下载链接
@@ -126,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = document.getElementById('title').value.trim();
       const body = document.getElementById('body').value.trim();
       const url = document.getElementById('url').value.trim();
+      const tags = document.getElementById('tags').value.trim();
       const avatarFile = document.getElementById('avatar').files[0];
 
       // 创建 FormData 以支持文件上传
@@ -134,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('body', body);
       formData.append('url', url);
       formData.append('uploader', uploader);
+      formData.append('tags', tags);
       
       if (avatarFile) {
         formData.append('avatar', avatarFile);
@@ -176,5 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.head.appendChild(link);
   }
 
-  loadPages();
+  // 只有在首页才加载页面列表
+  if (window.location.pathname === '/' || window.location.pathname === '/pages') {
+    loadPages();
+  }
 });

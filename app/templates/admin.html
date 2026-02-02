@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员面板 - LingChat communitymods</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <h1 class="site-title">管理员面板</h1>
+            <div>
+                <span id="auth-info"></span>
+                <a class="btn small" href="/">返回首页</a>
+            </div>
+        </div>
+    </header>
+    <main class="container">
+        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 24px;">
+            <!-- 统计图表 -->
+            <section class="card">
+                <h2>每日角色创建统计</h2>
+                <div style="height: 300px;">
+                    <canvas id="dailyStatsChart"></canvas>
+                </div>
+            </section>
+
+            <!-- 快速统计 -->
+            <section class="card">
+                <h2>系统概览</h2>
+                <div class="stats-grid" style="display: grid; gap: 16px;">
+                    <div class="stat-item">
+                        <h3>总角色数</h3>
+                        <p id="total-pages" class="stat-number">0</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>总用户数</h3>
+                        <p id="total-users" class="stat-number">0</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>今日新增</h3>
+                        <p id="today-pages" class="stat-number">0</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>活跃标签</h3>
+                        <p id="top-tags" class="stat-number">-</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 详细数据表格 -->
+        <section class="card" style="margin-top: 24px;">
+            <h2>详细统计数据</h2>
+            <div class="table-container" style="overflow-x: auto;">
+                <table id="stats-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: var(--surface);">
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">日期</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">新增角色</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">新增用户</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">热门标签</th>
+                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-table-body">
+                        <!-- 数据将通过JavaScript填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 标签管理 -->
+        <section class="card" style="margin-top: 24px;">
+            <h2>标签管理</h2>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div>
+                    <h3>所有标签</h3>
+                    <div id="all-tags" class="tags-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
+                        <!-- 标签将通过JavaScript加载 -->
+                    </div>
+                </div>
+                <div>
+                    <h3>添加新标签</h3>
+                    <div style="margin-top: 12px;">
+                        <input type="text" id="new-tag-name" placeholder="输入标签名称" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
+                        <button id="add-tag-btn" class="btn small" style="margin-top: 8px;">添加标签</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 检查管理员权限
+        (function() {
+            const authUser = localStorage.getItem('auth_user');
+            if (!authUser || !authUser.includes('admin')) {
+                alert('需要管理员权限才能访问此页面');
+                window.location.href = '/';
+            }
+            document.getElementById('auth-info').textContent = '管理员：' + authUser;
+        })();
+
+        let dailyStatsData = [];
+
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/v1/admin/stats');
+                if (!res.ok) throw new Error('获取统计数据失败');
+                const data = await res.json();
+                
+                // 更新快速统计
+                document.getElementById('total-pages').textContent = data.total_pages;
+                document.getElementById('total-users').textContent = data.total_users;
+                document.getElementById('today-pages').textContent = data.today_pages;
+                document.getElementById('top-tags').textContent = data.top_tags.slice(0, 3).join(', ');
+                
+                // 更新图表数据
+                dailyStatsData = data.daily_stats;
+                renderChart();
+                renderTable();
+                
+                // 加载标签
+                loadTags();
+                
+            } catch (err) {
+                console.error('加载统计数据失败:', err);
+                alert('加载统计数据失败');
+            }
+        }
+
+        // 渲染图表
+        function renderChart() {
+            const ctx = document.getElementById('dailyStatsChart').getContext('2d');
+            
+            const dates = dailyStatsData.map(item => item.date);
+            const counts = dailyStatsData.map(item => item.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: '每日新增角色',
+                        data: counts,
+                        backgroundColor: 'rgba(14, 165, 164, 0.5)',
+                        borderColor: 'rgba(14, 165, 164, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '数量'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染表格
+        function renderTable() {
+            const tbody = document.getElementById('stats-table-body');
+            tbody.innerHTML = '';
+            
+            dailyStatsData.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.date}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.count}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.new_users || 0}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.top_tags?.join(', ') || '-'}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">
+                        <button class="btn small" onclick="viewDayDetails('${item.date}')">查看详情</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 加载标签
+        async function loadTags() {
+            try {
+                const res = await fetch('/api/v1/admin/tags');
+                if (!res.ok) throw new Error('获取标签失败');
+                const tags = await res.json();
+                
+                const container = document.getElementById('all-tags');
+                container.innerHTML = '';
+                
+                tags.forEach(tag => {
+                    const tagElement = document.createElement('div');
+                    tagElement.className = 'tag-item';
+                    tagElement.style.cssText = `
+                        background: var(--surface);
+                        padding: 4px 12px;
+                        border-radius: 16px;
+                        font-size: 14px;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    `;
+                    tagElement.innerHTML = `
+                        <span>${tag.name}</span>
+                        <span style="color: var(--muted); font-size: 12px;">(${tag.count})</span>
+                        <button onclick="deleteTag(${tag.id})" style="margin-left: 4px; background: none; border: none; color: var(--danger); cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    container.appendChild(tagElement);
+                });
+                
+            } catch (err) {
+                console.error('加载标签失败:', err);
+            }
+        }
+
+        // 添加标签
+        document.getElementById('add-tag-btn').addEventListener('click', async () => {
+            const tagName = document.getElementById('new-tag-name').value.trim();
+            if (!tagName) {
+                alert('请输入标签名称');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/v1/admin/tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: tagName })
+                });
+                
+                if (!res.ok) throw new Error('添加标签失败');
+                
+                alert('标签添加成功');
+                document.getElementById('new-tag-name').value = '';
+                loadTags();
+                loadStats();
+                
+            } catch (err) {
+                console.error('添加标签失败:', err);
+                alert('添加标签失败');
+            }
+        });
+
+        // 删除标签
+        async function deleteTag(tagId) {
+            if (!confirm('确定要删除这个标签吗？')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/admin/tags/${tagId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!res.ok) throw new Error('删除标签失败');
+                
+                alert('标签删除成功');
+                loadTags();
+                loadStats();
+                
+            } catch (err) {
+                console.error('删除标签失败:', err);
+                alert('删除标签失败');
+            }
+        }
+
+        // 查看某天详情
+        function viewDayDetails(date) {
+            window.location.href = `/admin/day/${date}`;
+        }
+
+        // 页面加载时获取数据
+        document.addEventListener('DOMContentLoaded', loadStats);
+    </script>
+</body>
+</html>

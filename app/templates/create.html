@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -7,6 +6,7 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <header class="site-header">
@@ -39,6 +39,12 @@
         <label for="body">角色介绍:</label>
         <textarea id="body" name="body" required placeholder="请输入角色介绍，支持Markdown格式..."></textarea>
 
+        <label for="tags">标签 (以逗号分隔):</label>
+        <input type="text" id="tags" name="tags" placeholder="例如: AI助手, 中文, 智能对话">
+        <div style="margin-top: 4px; font-size: 14px; color: var(--muted);">
+          提示：输入多个标签请用逗号分隔，如"游戏角色, 可爱, 女性"
+        </div>
+
         <label for="url">下载地址(直链):</label>
         <input type="text" id="url" name="url" required placeholder="https://example.com/download.zip">
 
@@ -54,6 +60,14 @@
     <section class="list-section">
       <h2>提示</h2>
       <p>需要先登录才能创建角色。若没有账号，请先 <a href="/register">注册</a>。</p>
+      
+      <div class="popular-tags" style="margin-bottom: 20px;">
+        <h3>常用标签</h3>
+        <div id="popular-tags" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+          <!-- 常用标签将通过JavaScript加载 -->
+        </div>
+      </div>
+      
       <p><strong>Markdown 支持:</strong></p>
       <ul>
         <li>支持大部分的 Markdown 语法</li>
@@ -76,6 +90,42 @@
     const faScript = document.createElement('script');
     faScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js';
     document.head.appendChild(faScript);
+    
+    // 加载常用标签
+    async function loadPopularTags() {
+      try {
+        const res = await fetch('/api/v1/pages/tags');
+        if (!res.ok) return;
+        const tags = await res.json();
+        
+        const container = document.getElementById('popular-tags');
+        tags.slice(0, 10).forEach(tag => {
+          const tagElement = document.createElement('span');
+          tagElement.className = 'tag-chip';
+          tagElement.style.cssText = `
+            background: var(--surface);
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border);
+          `;
+          tagElement.textContent = tag.name;
+          tagElement.addEventListener('click', () => {
+            const tagsInput = document.getElementById('tags');
+            const currentTags = tagsInput.value.split(',').filter(t => t.trim());
+            if (!currentTags.includes(tag.name)) {
+              currentTags.push(tag.name);
+              tagsInput.value = currentTags.join(', ');
+            }
+          });
+          container.appendChild(tagElement);
+        });
+      } catch (err) {
+        console.error('加载标签失败:', err);
+      }
+    }
     
     // 简单前端控制：显示登录状态，若未登录提交时会跳转到 /login
     (function(){
@@ -114,6 +164,9 @@
         preview.innerHTML = '<div class="avatar-placeholder"><i class="fas fa-user-circle"></i></div>';
       }
     });
+    
+    // 页面加载完成后加载常用标签
+    document.addEventListener('DOMContentLoaded', loadPopularTags);
   </script>
 </body>
 </html>

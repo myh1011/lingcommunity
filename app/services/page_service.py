@@ -7,6 +7,8 @@ import shutil
 
 from app.schemas.page import Pagecreate
 from app.models.page import Page as PageModel
+from app.models.tag import Tag
+from app.models.page_tag import page_tags
 
 class PageService:
     def __init__(self, db: Session):
@@ -33,12 +35,18 @@ class PageService:
             avatar_url=payload.avatar_url
         )
         
+        # 处理标签
+        if payload.tags:
+            self._attach_tags(page, payload.tags)
+        
         self.db.add(page)
         self.db.commit()
         self.db.refresh(page)
         return page
 
-    def create_with_avatar(self, title: str, body: str, url: str, uploader: Optional[str], avatar_file: Optional[UploadFile]) -> PageModel:
+    def create_with_avatar(self, title: str, body: str, url: str, 
+                         uploader: Optional[str], avatar_file: Optional[UploadFile],
+                         tags: Optional[List[str]] = None) -> PageModel:
         avatar_url = None
         
         # 处理头像上传
@@ -71,10 +79,22 @@ class PageService:
             body=body,
             url=url,
             uploader=uploader,
-            avatar_url=avatar_url
+            avatar_url=avatar_url,
+            tags=tags or []
         )
         
         return self.create(page_create)
+
+    def _attach_tags(self, page: PageModel, tag_names: List[str]):
+        """为页面附加标签"""
+        for tag_name in tag_names:
+            # 查找或创建标签
+            tag = self.db.query(Tag).filter(Tag.name == tag_name).first()
+            if not tag:
+                tag = Tag(name=tag_name)
+                self.db.add(tag)
+                self.db.flush()  # 获取标签ID但不提交事务
+            page.tags.append(tag)
 
     def get_by_url(self, url: str) -> Optional[PageModel]:
         return self.db.query(PageModel).filter(PageModel.url == url).first()
@@ -98,3 +118,34 @@ class PageService:
 
     def list_all(self) -> List[PageModel]:
         return self.db.query(PageModel).order_by(PageModel.created_at.desc() if hasattr(PageModel, 'created_at') else PageModel.id.desc()).all()
+
+    def search(self, query: Optional[str] = None, tag: Optional[str] = None) -> List[PageModel]:
+        """搜索页面，支持标题搜索和标签筛选"""
+        q = self.db.query(PageModel)
+        
+        if query:
+            q = q.filter(PageModel.title.contains(query))
+        
+        if tag:
+            q = q.join(PageModel.tags).filter(Tag.name == tag)
+        
+        return q.order_by(PageModel.created_at.desc()).all()
+
+    def get_all_tags(self) -> List[Tag]:
+        """获取所有标签"""
+        return self.db.query(Tag).order_by(Tag.name).all()
+
+    def get_popular_tags(self, limit: int = 10) -> List[Tag]:
+        """获取热门标签"""
+        # 使用原生SQL查询标签使用频率
+        from sqlalchemy import func
+        return self.db.query(
+            Tag, 
+            func.count(page_tags.c.page_id).label('count')
+        ).join(
+            page_tags
+        ).group_by(
+            Tag.id
+        ).order_by(
+            func.count(page_tags.c.page_id).desc()
+        ).limit(limit).all()

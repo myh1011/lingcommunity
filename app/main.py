@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Request, Depends, HTTPException, UploadFile, File, Form, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +11,7 @@ from app.db.database import Base, engine, get_db
 from app.services.page_service import PageService
 from app.api.v1.pages import router as pages_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.admin import router as admin_router  # 新增管理员路由
 from app.models.page import Page
 from app.db.database import SessionLocal
 from sqlalchemy import inspect, text
@@ -30,6 +30,7 @@ app.add_middleware(
 
 app.include_router(pages_router, prefix="/api/v1/pages", tags=["pages"])
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])  # 注册管理员路由
 
 # 创建静态文件目录
 os.makedirs("app/static", exist_ok=True)
@@ -77,10 +78,14 @@ async def render_page(request: Request, uid: str, db: Session = Depends(get_db))
         # current_user 由前端 localStorage 管理，后端先传 None
         "current_user": None,
     })
-    
+
 @app.get("/download_url")
 async def download_url_view(request: Request):
     return templates.TemplateResponse("download_url.html", {"request": request})
+
+@app.get("/admin")
+async def admin_view(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request})
     
 @app.post("/api/v1/upload/avatar")
 async def upload_avatar(file: UploadFile = File(...)):
@@ -109,6 +114,8 @@ def create_tables():
     try:
         inspector = inspect(engine)
         tables = inspector.get_table_names()
+        
+        # 检查并初始化表结构
         if 'pages' in tables:
             cols = [c['name'] for c in inspector.get_columns('pages')]
             
@@ -158,7 +165,7 @@ def create_tables():
                 print("初始化：pages.avatar_url 列不存在，开始添加 avatar_url 列 ...")
                 try:
                     with engine.begin() as conn:
-                        conn.execute(text("ALTER TABLE pages ADD COLUMN avatar_url VARCHAR(255) DEFAULT NULL;"))
+                        conn.execute(text("ALTER TABLE pages ADD COLUMN avatar_url VARCHAR(500) DEFAULT NULL;"))
                     print("已添加列 avatar_url")
                 except ProgrammingError as e:
                     print("添加 avatar_url 列时发生错误（可能已存在），继续：", e)

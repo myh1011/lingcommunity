@@ -1,28 +1,53 @@
-
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import os
 
 from app.db.database import get_db
 from app.services.page_service import PageService
-from app.schemas.page import Pagecreate, PageOut, PageListOut
+from app.schemas.page import Pagecreate, PageOut, PageListOut, TagBase
 
 router = APIRouter()
 
 def get_page_service(db: Session = Depends(get_db)) -> PageService:
     return PageService(db)
 
-# 列表路由
+# 获取所有标签
+@router.get("/tags", response_model=List[TagBase])
+async def get_all_tags(page_service: PageService = Depends(get_page_service)):
+    tags = page_service.get_all_tags()
+    return tags
+
+# 列表路由 - 支持搜索和筛选
 @router.get("", response_model=List[PageListOut])
 @router.get("/", response_model=List[PageListOut])
-async def list_pages(page_service: PageService = Depends(get_page_service)):
+async def list_pages(
+    query: Optional[str] = Query(None, description="搜索标题"),
+    tag: Optional[str] = Query(None, description="按标签筛选"),
+    page_service: PageService = Depends(get_page_service)
+):
     try:
-        return page_service.list_all()
-    except AttributeError:
+        pages = page_service.search(query, tag)
+        # 转换为响应模型
+        result = []
+        for page in pages:
+            page_dict = {
+                "id": page.id,
+                "uid": page.uid,
+                "title": page.title,
+                "url": page.url,
+                "uploader": page.uploader,
+                "avatar_url": page.avatar_url,
+                "created_at": page.created_at,
+                "tags": [tag.name for tag in page.tags] if page.tags else []
+            }
+            result.append(PageListOut(**page_dict))
+        return result
+    except Exception as e:
+        print(f"获取页面列表失败: {e}")
         return []
 
-# 创建角色路由 - 支持文件上传
+# 创建角色路由 - 支持文件上传和标签
 @router.post("", response_model=PageOut)
 @router.post("/", response_model=PageOut)
 async def create_page(
@@ -30,11 +55,24 @@ async def create_page(
     body: str = Form(...),
     url: str = Form(...),
     uploader: str = Form(None),
+    tags: str = Form(""),  # 以逗号分隔的标签字符串
     avatar: UploadFile = File(None),
     page_service: PageService = Depends(get_page_service)
 ):
     try:
-        return page_service.create_with_avatar(title, body, url, uploader, avatar)
+        # 解析标签字符串
+        tag_list = []
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+        
+        return page_service.create_with_avatar(
+            title=title,
+            body=body,
+            url=url,
+            uploader=uploader,
+            avatar_file=avatar,
+            tags=tag_list
+        )
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -47,7 +85,25 @@ async def read_page(uid: str, page_service: PageService = Depends(get_page_servi
     page = page_service.get_by_uid(uid)
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
-    return page
+    
+    # 转换为响应模型，包含标签对象
+    page_dict = {
+        "id": page.id,
+        "uid": page.uid,
+        "title": page.title,
+        "body": page.body,
+        "url": page.url,
+        "uploader": page.uploader,
+        "avatar_url": page.avatar_url,
+        "created_at": page.created_at,
+        "tags": [tag.name for tag in page.tags] if page.tags else [],
+        "tag_objects": [
+            {"id": tag.id, "name": tag.name, "color": tag.color}
+            for tag in page.tags
+        ] if page.tags else []
+    }
+    
+    return PageOut(**page_dict)
 
 # 删除角色 - 只有上传者可以删除
 @router.delete("/{uid}")

@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
+from .page_tag import page_tags
 
 class Page(Base):
     __tablename__ = "pages"
@@ -13,3 +15,6 @@ class Page(Base):
     uploader = Column(String(100), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 添加标签关系
+    tags = relationship("Tag", secondary=page_tags, backref="pages")

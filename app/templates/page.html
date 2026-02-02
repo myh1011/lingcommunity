@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -34,6 +35,12 @@
                 </div>
                 <div class="page-card-content">
                     <h2 class="page-title">{{ title }}</h2>
+                    
+                    <!-- 标签显示区域 -->
+                    <div id="tags-container" style="margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px;">
+                        <!-- 标签将通过JavaScript动态加载 -->
+                    </div>
+                    
                     <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
                         <div style="color:var(--muted);">
                             <i class="fas fa-user"></i> 上传者: {{ uploader or '匿名' }}
@@ -74,7 +81,8 @@
         "url": url,
         "title": title,
         "uploader": uploader,
-        "current_user": current_user
+        "current_user": current_user,
+        "tags": []  // 初始化为空，将通过API获取
     } | tojson }}</script>
 
     <script>
@@ -89,6 +97,49 @@
         document.getElementById('body-markdown').innerHTML = safeHtml;
       } catch (e) {
         document.getElementById('body-markdown').textContent = pageData.body;
+      }
+
+      // 加载标签
+      async function loadTags() {
+        try {
+          const res = await fetch(`/api/v1/pages/${pageData.uid}`);
+          if (!res.ok) return;
+          const pageInfo = await res.json();
+          
+          if (pageInfo.tag_objects && pageInfo.tag_objects.length > 0) {
+            const container = document.getElementById('tags-container');
+            pageInfo.tag_objects.forEach(tag => {
+              const tagElement = document.createElement('a');
+              tagElement.href = `/pages?tag=${encodeURIComponent(tag.name)}`;
+              tagElement.className = 'tag-chip';
+              tagElement.style.cssText = `
+                background: var(--surface);
+                padding: 4px 12px;
+                border-radius: 16px;
+                font-size: 14px;
+                text-decoration: none;
+                color: var(--text-dark);
+                border: 1px solid var(--border);
+                transition: all 0.2s ease;
+              `;
+              tagElement.innerHTML = `
+                <i class="fas fa-tag" style="margin-right: 4px;"></i>
+                ${tag.name}
+              `;
+              tagElement.addEventListener('mouseenter', () => {
+                tagElement.style.background = tag.color || 'var(--primary)';
+                tagElement.style.color = 'white';
+              });
+              tagElement.addEventListener('mouseleave', () => {
+                tagElement.style.background = 'var(--surface)';
+                tagElement.style.color = 'var(--text-dark)';
+              });
+              container.appendChild(tagElement);
+            });
+          }
+        } catch (err) {
+          console.error('加载标签失败:', err);
+        }
       }
 
       // 复制链接按钮
@@ -144,6 +195,9 @@
           authInfoEl.textContent = '';
         }
       })();
+
+      // 页面加载完成后加载标签
+      document.addEventListener('DOMContentLoaded', loadTags);
     </script>
 
     <script src="/static/js/app.js"></script>

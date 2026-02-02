@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -6,6 +7,7 @@
   <link rel="stylesheet" href="/static/css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <header class="site-header">
@@ -16,9 +18,293 @@
     </div>
   </header>
   <main class="container">
-    <ul id="page-list" class="page-list"></ul>
+    
+    <!-- 搜索和筛选区域 -->
+    <section class="card" style="margin-bottom: 24px;">
+      <div class="search-filter-container">
+        <div class="search-box" style="display: flex; gap: 12px; margin-bottom: 16px;">
+          <input type="text" id="search-input" placeholder="搜索角色名称..." style="flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 8px;">
+          <button id="search-btn" class="btn btn-primary">
+            <i class="fas fa-search"></i> 搜索
+          </button>
+        </div>
+        
+        <div class="filter-section">
+          <h3 style="margin-top: 0; margin-bottom: 12px;">按标签筛选</h3>
+          <div id="tag-filters" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+            <!-- 标签将通过JavaScript加载 -->
+          </div>
+          <button id="clear-filters" class="btn small">清除筛选</button>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 角色列表 -->
+    <section>
+      <h2 id="list-title" style="margin-bottom: 16px;">所有角色</h2>
+      <ul id="page-list" class="page-list"></ul>
+    </section>
+    
+    <!-- 加载更多按钮 -->
+    <div style="text-align: center; margin-top: 32px;">
+      <button id="load-more" class="btn btn-secondary" style="display: none;">
+        <i class="fas fa-sync-alt"></i> 加载更多
+      </button>
+    </div>
   </main>
 
   <script src="/static/js/app.js"></script>
+  <script>
+    let currentQuery = '';
+    let currentTag = '';
+    let currentPage = 1;
+    const pageSize = 10;
+    let allTags = [];
+
+    // 加载标签筛选器
+    async function loadTagFilters() {
+      try {
+        const res = await fetch('/api/v1/pages/tags');
+        if (!res.ok) return;
+        const tags = await res.json();
+        allTags = tags;
+        
+        const container = document.getElementById('tag-filters');
+        container.innerHTML = '';
+        
+        // 添加"全部"选项
+        const allBtn = document.createElement('button');
+        allBtn.className = 'tag-filter-btn' + (!currentTag ? ' active' : '');
+        allBtn.textContent = '全部';
+        allBtn.addEventListener('click', () => {
+          currentTag = '';
+          currentPage = 1;
+          loadPages();
+          updateFilterButtons();
+        });
+        container.appendChild(allBtn);
+        
+        // 添加标签按钮
+        tags.slice(0, 15).forEach(tag => {
+          const btn = document.createElement('button');
+          btn.className = 'tag-filter-btn' + (currentTag === tag.name ? ' active' : '');
+          btn.textContent = tag.name;
+          btn.addEventListener('click', () => {
+            currentTag = tag.name;
+            currentPage = 1;
+            loadPages();
+            updateFilterButtons();
+          });
+          container.appendChild(btn);
+        });
+        
+        // 添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+          .tag-filter-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+          }
+          .tag-filter-btn:hover {
+            background: var(--surface);
+            border-color: var(--accent);
+          }
+          .tag-filter-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+          }
+        `;
+        document.head.appendChild(style);
+        
+      } catch (err) {
+        console.error('加载标签失败:', err);
+      }
+    }
+
+    // 更新筛选按钮状态
+    function updateFilterButtons() {
+      const buttons = document.querySelectorAll('.tag-filter-btn');
+      buttons.forEach(btn => {
+        const isActive = (btn.textContent === '全部' && !currentTag) || 
+                         (btn.textContent === currentTag);
+        btn.className = 'tag-filter-btn' + (isActive ? ' active' : '');
+      });
+    }
+
+    // 加载角色列表
+    async function loadPages() {
+      try {
+        // 构建查询参数
+        let url = '/api/v1/pages?';
+        const params = new URLSearchParams();
+        if (currentQuery) params.append('query', currentQuery);
+        if (currentTag) params.append('tag', currentTag);
+        
+        const res = await fetch(url + params.toString());
+        if (!res.ok) {
+          document.getElementById('page-list').innerHTML = '<li>加载失败，请稍后重试</li>';
+          return;
+        }
+        
+        const pages = await res.json();
+        const listEl = document.getElementById('page-list');
+        
+        if (currentPage === 1) {
+          listEl.innerHTML = '';
+        }
+        
+        if (pages.length === 0) {
+          if (currentPage === 1) {
+            listEl.innerHTML = '<li style="text-align: center; color: var(--muted); padding: 40px;">没有找到符合条件的角色</li>';
+          }
+          document.getElementById('load-more').style.display = 'none';
+          return;
+        }
+        
+        // 更新列表标题
+        const title = document.getElementById('list-title');
+        if (currentQuery) {
+          title.textContent = `搜索结果: "${currentQuery}"`;
+        } else if (currentTag) {
+          title.textContent = `标签: "${currentTag}"`;
+        } else {
+          title.textContent = '所有角色';
+        }
+        
+        // 渲染角色列表
+        pages.forEach(p => {
+          // 显示头像，如果没有则显示占位符
+          const avatarHtml = p.avatar_url 
+            ? `<img src="${escapeAttr(p.avatar_url)}" alt="${escapeHtml(p.title)} 头像">`
+            : `<div class="avatar-placeholder"><i class="fas fa-user-circle"></i></div>`;
+          
+          // 检查当前登录用户是否是上传者
+          const currentUser = localStorage.getItem('auth_user');
+          const isOwner = currentUser && p.uploader && currentUser === p.uploader;
+          
+          // 格式化日期
+          const createdDate = p.created_at ? new Date(p.created_at).toLocaleDateString('zh-CN') : '未知';
+          
+          // 渲染标签
+          const tagsHtml = p.tags && p.tags.length > 0 ? 
+            `<div class="page-tags" style="margin: 8px 0; display: flex; flex-wrap: wrap; gap: 4px;">
+              ${p.tags.map(tag => `
+                <span style="background: var(--surface); padding: 2px 8px; border-radius: 12px; font-size: 12px; color: var(--muted);">
+                  ${escapeHtml(tag)}
+                </span>
+              `).join('')}
+            </div>` : '';
+          
+          const li = document.createElement('li');
+          li.className = 'page-card-list-item';
+          li.innerHTML = `
+            <article class="card">
+              <div class="page-card-with-avatar">
+                <div class="avatar-container">
+                  <div class="avatar-image">
+                    ${avatarHtml}
+                  </div>
+                </div>
+                <div class="page-card-content">
+                  <h3 class="card-title"><a href="/page/${encodeURIComponent(p.uid)}">${escapeHtml(p.title)}</a></h3>
+                  ${tagsHtml}
+                  <div class="card-meta">
+                    <a class="meta-link" href="${escapeAttr(p.url)}" target="_blank" rel="noopener">
+                      <i class="fas fa-download"></i> 下载链接
+                    </a>
+                    <div class="uploader-info">
+                      <i class="fas fa-user"></i>
+                      ${p.uploader ? `上传者: ${escapeHtml(p.uploader)}` : '匿名用户'}
+                    </div>
+                    <div class="uploader-info">
+                      <i class="fas fa-calendar"></i>
+                      ${createdDate}
+                    </div>
+                  </div>
+                  ${isOwner ? `
+                    <div class="page-actions" style="margin-top: 12px;">
+                      <button class="btn btn-danger small delete-btn" data-uid="${p.uid}">
+                        <i class="fas fa-trash"></i> 删除角色
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            </article>
+          `;
+          listEl.appendChild(li);
+        });
+        
+        // 显示/隐藏加载更多按钮
+        document.getElementById('load-more').style.display = pages.length >= pageSize ? 'block' : 'none';
+        
+        // 重新绑定删除按钮事件
+        document.querySelectorAll('.delete-btn').forEach(button => {
+          button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const uid = button.getAttribute('data-uid');
+            await deletePage(uid);
+          });
+        });
+        
+      } catch (err) {
+        console.error('加载角色列表失败:', err);
+        document.getElementById('page-list').innerHTML = '<li>加载失败，请稍后重试</li>';
+      }
+    }
+
+    // 搜索功能
+    document.getElementById('search-btn').addEventListener('click', () => {
+      currentQuery = document.getElementById('search-input').value.trim();
+      currentPage = 1;
+      loadPages();
+    });
+    
+    // 支持回车搜索
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        currentQuery = e.target.value.trim();
+        currentPage = 1;
+        loadPages();
+      }
+    });
+    
+    // 清除筛选
+    document.getElementById('clear-filters').addEventListener('click', () => {
+      currentQuery = '';
+      currentTag = '';
+      document.getElementById('search-input').value = '';
+      currentPage = 1;
+      loadPages();
+      updateFilterButtons();
+    });
+    
+    // 加载更多
+    document.getElementById('load-more').addEventListener('click', () => {
+      currentPage++;
+      loadPages();
+    });
+
+    // 工具函数
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+    
+    function escapeAttr(str) {
+      return String(str).replace(/["']/g, s => (s === '"' ? '&quot;' : '&#39;'));
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTagFilters();
+      loadPages();
+    });
+  </script>
 </body>
 </html>
