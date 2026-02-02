@@ -47,7 +47,7 @@ async def list_pages(
         print(f"获取页面列表失败: {e}")
         return []
 
-# 创建角色路由 - 支持文件上传和标签
+# 在 pages.py 的 create_page 路由中修改返回部分
 @router.post("", response_model=PageOut)
 @router.post("/", response_model=PageOut)
 async def create_page(
@@ -65,7 +65,8 @@ async def create_page(
         if tags:
             tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
         
-        return page_service.create_with_avatar(
+        # 创建角色并获取页面对象
+        page = page_service.create_with_avatar(
             title=title,
             body=body,
             url=url,
@@ -73,6 +74,26 @@ async def create_page(
             avatar_file=avatar,
             tags=tag_list
         )
+        
+        # 转换为响应模型，包含标签对象
+        page_dict = {
+            "id": page.id,
+            "uid": page.uid,
+            "title": page.title,
+            "body": page.body,
+            "url": page.url,
+            "uploader": page.uploader,
+            "avatar_url": page.avatar_url,
+            "created_at": page.created_at,
+            "tags": [tag.name for tag in page.tags] if page.tags else [],
+            "tag_objects": [
+                {"id": tag.id, "name": tag.name, "color": tag.color}
+                for tag in page.tags
+            ] if page.tags else []
+        }
+        
+        return PageOut(**page_dict)
+        
     except HTTPException as e:
         raise e
     except Exception as e:

@@ -46,8 +46,8 @@ class PageService:
         return page
 
     def create_with_avatar(self, title: str, body: str, url: str, 
-                         uploader: Optional[str], avatar_file: Optional[UploadFile],
-                         tags: Optional[List[str]] = None) -> PageModel:
+                        uploader: Optional[str], avatar_file: Optional[UploadFile],
+                        tags: Optional[List[str]] = None) -> PageModel:
         avatar_url = None
         
         # 处理头像上传
@@ -74,7 +74,7 @@ class PageService:
                 print(f"保存头像文件失败: {e}")
                 # 不因为头像保存失败而阻止创建角色
         
-        # 创建角色数据对象
+            # 创建角色数据对象
         page_create = Pagecreate(
             title=title,
             body=body,
@@ -84,7 +84,18 @@ class PageService:
             tags=tags or []
         )
         
-        return self.create(page_create)
+        # 创建页面
+        page = self.create(page_create)
+        
+        # 确保标签关系被加载
+        self.db.refresh(page)
+        
+        # 重新加载标签关系
+        if hasattr(page, 'tags'):
+            # 触发标签关系的加载
+            _ = page.tags
+        
+        return page
 
     def _attach_tags(self, page: PageModel, tag_names: List[str]):
         """为页面附加标签"""
