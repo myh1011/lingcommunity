@@ -44,7 +44,7 @@ page-service
 1. **Clone the repository**:
    ```
    git clone <repository-url>
-   cd page-service
+   cd lingcommunity
    ```
 
 2. **Install dependencies**:
@@ -57,7 +57,7 @@ page-service
 
 4. **Run the application**:
    ```
-   python app/main.py
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 5. **Access the API**:
