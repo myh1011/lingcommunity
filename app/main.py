@@ -16,6 +16,7 @@ from app.models.page import Page
 from app.db.database import SessionLocal
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import ProgrammingError
+from app.middleware.auth_middleware import get_current_user
 from uuid import uuid4
 
 app = FastAPI()
@@ -84,8 +85,11 @@ async def download_url_view(request: Request):
     return templates.TemplateResponse("download_url.html", {"request": request})
 
 @app.get("/admin")
-async def admin_view(request: Request):
-    return templates.TemplateResponse("admin.html", {"request": request})
+async def admin_view(request: Request, current_user: dict = Depends(get_current_user)):
+    """管理员页面，需要管理员权限"""
+    if not current_user.get('is_admin', False):
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    return templates.TemplateResponse("admin.html", {"request": request, "current_user": current_user})
     
 @app.post("/api/v1/upload/avatar")
 async def upload_avatar(file: UploadFile = File(...)):
