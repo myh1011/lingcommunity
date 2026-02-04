@@ -300,7 +300,7 @@ form textarea::placeholder {
 .feature-icon {
   width: 64px;
   height: 64px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
   border-radius: 50%;
   display: flex;
   align-items: center;
