@@ -1,349 +1,681 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理员面板 - LingChat communitymods</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 在admin.html的<head>部分添加 -->
-    <script>
-        // 页面加载时检查登录状态并设置查询参数
-        window.onload = function() {
-            const authUser = localStorage.getItem('auth_user');
-            if (authUser) {
-                // 如果已经登录，重定向到带用户参数的URL
-                const currentUrl = new URL(window.location.href);
-                currentUrl.searchParams.set('user', authUser);
-                window.history.replaceState({}, '', currentUrl);
-                
-                // 更新页面显示
-                document.getElementById('auth-info').textContent = '管理员：' + authUser;
-            } else {
-                // 未登录，跳转到登录页
-                alert('请先登录');
-                window.location.href = '/login?redirect=' + encodeURIComponent('/admin');
-            }
-        };
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员后台 - LingChat communitymods</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header class="site-header">
-        <div class="container header-inner">
-            <h1 class="site-title">管理员面板</h1>
-            <div>
-                <span id="auth-info"></span>
-                <a class="btn small" href="/">返回首页</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <h1 class="site-title"><a href="/">LingChat communitymods</a></h1>
+      <nav class="nav-links">
+        <a href="/">首页</a>
+        <span id="auth-info"></span>
+        <a id="auth-link" class="btn small" href="/login">登录</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="side-layout">
+      <!-- 侧边导航 -->
+      <aside class="side-nav">
+        <button data-tab="dashboard" class="active"><i class="fas fa-chart-line"></i> 仪表盘</button>
+        <button data-tab="content"><i class="fas fa-boxes"></i> 内容管理</button>
+        <button data-tab="reports"><i class="fas fa-flag"></i> 举报审阅 <span class="nav-badge" id="report-badge" style="display:none">0</span></button>
+        <button data-tab="users"><i class="fas fa-users"></i> 用户管理</button>
+        <button data-tab="tags"><i class="fas fa-tags"></i> 标签管理</button>
+      </aside>
+
+      <section>
+        <!-- ============ 仪表盘 ============ -->
+        <div id="panel-dashboard">
+          <div class="stat-cards">
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-day"></i></div><div class="stat-number" id="s-today">-</div><div class="stat-label">今日上架</div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-week"></i></div><div class="stat-number" id="s-week">-</div><div class="stat-label">本周上架</div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-alt"></i></div><div class="stat-number" id="s-month">-</div><div class="stat-label">本月上架</div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-box-open"></i></div><div class="stat-number" id="s-pages">-</div><div class="stat-label">全部角色</div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-number" id="s-users">-</div><div class="stat-label">注册用户</div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-download"></i></div><div class="stat-number" id="s-downloads">-</div><div class="stat-label">累计下载</div></div>
+            <div class="stat-card"><div class="stat-icon" style="color:#d97706"><i class="fas fa-flag"></i></div><div class="stat-number" id="s-reports">-</div><div class="stat-label">待审举报</div></div>
+            <div class="stat-card"><div class="stat-icon" style="color:#ef4444"><i class="fas fa-ban"></i></div><div class="stat-number" id="s-removed">-</div><div class="stat-label">已下架内容</div></div>
+          </div>
+
+          <div class="card" style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+              <h3 style="margin:0"><i class="fas fa-box-open"></i> 内容上架趋势</h3>
+              <div style="display:flex;gap:6px">
+                <button class="btn-mini" data-period="day">按日</button>
+                <button class="btn-mini" data-period="week">按周</button>
+                <button class="btn-mini" data-period="month">按月</button>
+              </div>
             </div>
-        </div>
-    </header>
-    <main class="container">
-        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 24px;">
-            <!-- 统计图表 -->
-            <section class="card">
-                <h2>每日角色创建统计</h2>
-                <div style="height: 300px;">
-                    <canvas id="dailyStatsChart"></canvas>
-                </div>
-            </section>
+            <div class="chart-box"><canvas id="upload-chart"></canvas></div>
+          </div>
 
-            <!-- 快速统计 -->
-            <section class="card">
-                <h2>系统概览</h2>
-                <div class="stats-grid" style="display: grid; gap: 16px;">
-                    <div class="stat-item">
-                        <h3>总角色数</h3>
-                        <p id="total-pages" class="stat-number">0</p>
-                    </div>
-                    <div class="stat-item">
-                        <h3>总用户数</h3>
-                        <p id="total-users" class="stat-number">0</p>
-                    </div>
-                    <div class="stat-item">
-                        <h3>今日新增</h3>
-                        <p id="today-pages" class="stat-number">0</p>
-                    </div>
-                    <div class="stat-item">
-                        <h3>活跃标签</h3>
-                        <p id="top-tags" class="stat-number">-</p>
-                    </div>
-                </div>
-            </section>
-        </div>
+          <div class="card" style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+              <h3 style="margin:0"><i class="fas fa-cloud-download-alt"></i> 下载趋势</h3>
+              <div style="display:flex;gap:6px">
+                <button class="btn-mini" data-dperiod="day">按日</button>
+                <button class="btn-mini" data-dperiod="week">按周</button>
+                <button class="btn-mini" data-dperiod="month">按月</button>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="download-chart"></canvas></div>
+          </div>
 
-        <!-- 详细数据表格 -->
-        <section class="card" style="margin-top: 24px;">
-            <h2>详细统计数据</h2>
-            <div class="table-container" style="overflow-x: auto;">
-                <table id="stats-table" style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: var(--surface);">
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">日期</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">新增角色</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">新增用户</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">热门标签</th>
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border);">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stats-table-body">
-                        <!-- 数据将通过JavaScript填充 -->
-                    </tbody>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px" class="dash-grid">
+            <div class="card" style="margin-bottom:0">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+                <h3 style="margin:0"><i class="fas fa-trophy" style="color:#f59e0b"></i> 内容下载榜单 TOP 10</h3>
+                <select class="select" id="ranking-period" style="width:auto;padding:6px 10px;font-size:13px">
+                  <option value="all">全部时间</option>
+                  <option value="day">今日</option>
+                  <option value="week">本周</option>
+                  <option value="month">本月</option>
+                </select>
+              </div>
+              <div class="chart-box-sm"><canvas id="ranking-chart"></canvas></div>
+              <div class="table-wrap" style="margin-top:12px">
+                <table class="table" id="ranking-table">
+                  <thead><tr><th>#</th><th>角色</th><th>上传者</th><th>下载</th></tr></thead>
+                  <tbody></tbody>
                 </table>
+              </div>
             </div>
-        </section>
-
-        <!-- 标签管理 -->
-        <section class="card" style="margin-top: 24px;">
-            <h2>标签管理</h2>
-            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
-                <div>
-                    <h3>所有标签</h3>
-                    <div id="all-tags" class="tags-container" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;">
-                        <!-- 标签将通过JavaScript加载 -->
-                    </div>
-                </div>
-                <div>
-                    <h3>添加新标签</h3>
-                    <div style="margin-top: 12px;">
-                        <input type="text" id="new-tag-name" placeholder="输入标签名称" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
-                        <button id="add-tag-btn" class="btn small" style="margin-top: 8px;">添加标签</button>
-                    </div>
-                </div>
+            <div class="card" style="margin-bottom:0">
+              <h3 style="margin-top:0"><i class="fas fa-tags"></i> 标签分布</h3>
+              <div class="chart-box-sm"><canvas id="tag-chart"></canvas></div>
             </div>
-        </section>
-    </main>
+          </div>
+        </div>
 
-    <script>
-        // 检查管理员权限
-        (function() {
-            const authUser = localStorage.getItem('auth_user');
-            if (!authUser || !authUser.includes('admin')) {
-                alert('需要管理员权限才能访问此页面');
-                window.location.href = '/';
-            }
-            document.getElementById('auth-info').textContent = '管理员：' + authUser;
-        })();
+        <!-- ============ 内容管理 ============ -->
+        <div id="panel-content" style="display:none">
+          <div class="card">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+              <input class="input" id="content-search" placeholder="搜索角色名称…" style="flex:1;min-width:200px">
+              <select class="select" id="content-status" style="width:auto">
+                <option value="">全部状态</option>
+                <option value="published">已上架</option>
+                <option value="removed">已下架</option>
+              </select>
+              <button class="btn btn-primary" id="content-search-btn" style="margin:0"><i class="fas fa-search"></i> 搜索</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>角色</th><th>上传者</th><th>标签</th><th>下载</th><th>状态</th><th>上架时间</th><th>操作</th></tr></thead>
+                <tbody id="content-tbody"></tbody>
+              </table>
+            </div>
+            <div id="content-pagination" class="pagination"></div>
+          </div>
+        </div>
 
-        let dailyStatsData = [];
+        <!-- ============ 举报审阅 ============ -->
+        <div id="panel-reports" style="display:none">
+          <div class="card">
+            <div class="tab-bar">
+              <button class="tab-btn active" data-rstatus="pending">待处理</button>
+              <button class="tab-btn" data-rstatus="approved">已通过</button>
+              <button class="tab-btn" data-rstatus="rejected">已驳回</button>
+              <button class="tab-btn" data-rstatus="">全部</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>被举报角色</th><th>举报人</th><th>类型</th><th>理由</th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+                <tbody id="reports-tbody"></tbody>
+              </table>
+            </div>
+            <div id="reports-pagination" class="pagination"></div>
+          </div>
+        </div>
 
-        // 修改admin.html中的loadStats函数
-        async function loadStats() {
-            try {
-                const authUser = localStorage.getItem('auth_user');
-                if (!authUser) {
-                    alert('请先登录');
-                    window.location.href = '/login';
-                    return;
-                }
-                
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'X-User': authUser  // 确保这里传递了正确的用户名
-                };
-                
-                console.log('正在请求统计数据，用户:', authUser);
-                
-                const res = await fetch('/api/v1/admin/stats', {
-                    headers: headers
-                });
-                
-                console.log('响应状态:', res.status);
-                
-                if (res.status === 401) {
-                    const error = await res.json();
-                    alert('认证失败: ' + error.detail);
-                    window.location.href = '/login';
-                    return;
-                }
-                
-                if (res.status === 403) {
-                    const error = await res.json();
-                    alert('权限不足: ' + error.detail);
-                    window.location.href = '/';
-                    return;
-                }
-                
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: 获取统计数据失败`);
-                }
-                
-                const data = await res.json();
-                
-                // 更新快速统计
-                document.getElementById('total-pages').textContent = data.total_pages;
-                document.getElementById('total-users').textContent = data.total_users;
-                document.getElementById('today-pages').textContent = data.today_pages;
-                document.getElementById('top-tags').textContent = data.top_tags.slice(0, 3).join(', ');
-                
-                // 更新图表数据
-                dailyStatsData = data.daily_stats;
-                renderChart();
-                renderTable();
-                
-                // 加载标签
-                loadTags();
-                
-            } catch (err) {
-                console.error('加载统计数据失败:', err);
-                alert('加载统计数据失败: ' + err.message);
-            }
+        <!-- ============ 用户管理 ============ -->
+        <div id="panel-users" style="display:none">
+          <div class="card">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+              <input class="input" id="user-search" placeholder="搜索用户名…" style="flex:1;min-width:200px">
+              <button class="btn btn-primary" id="user-search-btn" style="margin:0"><i class="fas fa-search"></i> 搜索</button>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>状态</th><th>投稿数</th><th>注册时间</th><th>操作</th></tr></thead>
+                <tbody id="users-tbody"></tbody>
+              </table>
+            </div>
+            <div id="users-pagination" class="pagination"></div>
+          </div>
+        </div>
+
+        <!-- ============ 标签管理 ============ -->
+        <div id="panel-tags" style="display:none">
+          <div class="card" style="margin-bottom:20px">
+            <h3 style="margin-top:0"><i class="fas fa-plus"></i> 添加新标签</h3>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <input class="input" id="new-tag-name" placeholder="标签名称" style="max-width:240px">
+              <input class="input" id="new-tag-color" type="color" value="#3b82f6" style="max-width:60px;padding:4px">
+              <button class="btn btn-primary" id="add-tag-btn" style="margin:0">添加标签</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>标签</th><th>颜色</th><th>使用次数</th><th>操作</th></tr></thead>
+                <tbody id="tags-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- 举报处理模态框 -->
+  <div id="review-mask" class="modal-mask" style="display:none">
+    <div class="modal">
+      <div class="modal-head"><span>处理举报</span><button class="modal-close" id="review-close">&times;</button></div>
+      <div class="modal-body">
+        <p id="review-summary" style="margin-top:0;color:var(--muted)"></p>
+        <div class="field">
+          <label>处理备注（可选）</label>
+          <textarea class="textarea" id="review-note" rows="3" placeholder="如：核实属实，已下架 / 与事实不符…"></textarea>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer">
+          <input type="checkbox" id="review-remove"> 通过的同时下架该角色
+        </label>
+      </div>
+      <div class="modal-foot" style="justify-content:space-between">
+        <button class="btn btn-danger" id="review-approve" style="margin:0">通过举报</button>
+        <button class="btn small" id="review-reject" style="margin:0">驳回举报</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/common.js"></script>
+  <script>
+    (function () {
+      // ==================== 全局状态 ====================
+      const charts = {};
+      const state = {
+        uploadPeriod: 'week',
+        downloadPeriod: 'week',
+        rankingPeriod: 'all',
+        reports: { status: 'pending', page: 1 },
+        content: { query: '', status: '', page: 1 },
+        users: { query: '', page: 1 },
+      };
+      let me = null;
+      let reviewTarget = null;
+
+      function makeChart(id, config) {
+        if (charts[id]) charts[id].destroy();
+        const ctx = document.getElementById(id);
+        if (!ctx) return null;
+        charts[id] = new Chart(ctx, config);
+        return charts[id];
+      }
+
+      // ==================== 访问控制 ====================
+      async function guard() {
+        try {
+          me = await LC.api('/api/v1/auth/me');
+          if (!LC.isAdmin()) {
+            LC.toast('需要管理员权限才能访问后台', 'error');
+            setTimeout(function () { window.location.href = '/'; }, 800);
+            return false;
+          }
+          return true;
+        } catch (err) {
+          LC.toast('请先登录管理员账号', 'warning');
+          setTimeout(function () { window.location.href = '/login?redirect=' + encodeURIComponent('/admin'); }, 800);
+          return false;
         }
+      }
 
-        // 渲染图表
-        function renderChart() {
-            const ctx = document.getElementById('dailyStatsChart').getContext('2d');
-            
-            const dates = dailyStatsData.map(item => item.date);
-            const counts = dailyStatsData.map(item => item.count);
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: dates,
-                    datasets: [{
-                        label: '每日新增角色',
-                        data: counts,
-                        backgroundColor: 'rgba(14, 165, 164, 0.5)',
-                        borderColor: 'rgba(14, 165, 164, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: '数量'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: '日期'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // 渲染表格
-        function renderTable() {
-            const tbody = document.getElementById('stats-table-body');
-            tbody.innerHTML = '';
-            
-            dailyStatsData.forEach(item => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.date}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.count}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.new_users || 0}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">${item.top_tags?.join(', ') || '-'}</td>
-                    <td style="padding: 12px; border-bottom: 1px solid var(--border);">
-                        <button class="btn small" onclick="viewDayDetails('${item.date}')">查看详情</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        // 加载标签
-        async function loadTags() {
-            try {
-                const res = await fetch('/api/v1/admin/tags');
-                if (!res.ok) throw new Error('获取标签失败');
-                const tags = await res.json();
-                
-                const container = document.getElementById('all-tags');
-                container.innerHTML = '';
-                
-                tags.forEach(tag => {
-                    const tagElement = document.createElement('div');
-                    tagElement.className = 'tag-item';
-                    tagElement.style.cssText = `
-                        background: var(--surface);
-                        padding: 4px 12px;
-                        border-radius: 16px;
-                        font-size: 14px;
-                        display: flex;
-                        align-items: center;
-                        gap: 4px;
-                    `;
-                    tagElement.innerHTML = `
-                        <span>${tag.name}</span>
-                        <span style="color: var(--muted); font-size: 12px;">(${tag.count})</span>
-                        <button onclick="deleteTag(${tag.id})" style="margin-left: 4px; background: none; border: none; color: var(--danger); cursor: pointer;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
-                    container.appendChild(tagElement);
-                });
-                
-            } catch (err) {
-                console.error('加载标签失败:', err);
-            }
-        }
-
-        // 添加标签
-        document.getElementById('add-tag-btn').addEventListener('click', async () => {
-            const tagName = document.getElementById('new-tag-name').value.trim();
-            if (!tagName) {
-                alert('请输入标签名称');
-                return;
-            }
-            
-            try {
-                const res = await fetch('/api/v1/admin/tags', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: tagName })
-                });
-                
-                if (!res.ok) throw new Error('添加标签失败');
-                
-                alert('标签添加成功');
-                document.getElementById('new-tag-name').value = '';
-                loadTags();
-                loadStats();
-                
-            } catch (err) {
-                console.error('添加标签失败:', err);
-                alert('添加标签失败');
-            }
+      // ==================== Tab 切换 ====================
+      function switchTab(tab) {
+        document.querySelectorAll('.side-nav button[data-tab]').forEach(function (b) {
+          b.classList.toggle('active', b.dataset.tab === tab);
         });
+        ['dashboard', 'content', 'reports', 'users', 'tags'].forEach(function (t) {
+          document.getElementById('panel-' + t).style.display = t === tab ? '' : 'none';
+        });
+        if (tab === 'dashboard') loadDashboard();
+        if (tab === 'content') loadContent();
+        if (tab === 'reports') loadReports();
+        if (tab === 'users') loadUsers();
+        if (tab === 'tags') loadTags();
+      }
 
-        // 删除标签
-        async function deleteTag(tagId) {
-            if (!confirm('确定要删除这个标签吗？')) return;
-            
-            try {
-                const res = await fetch(`/api/v1/admin/tags/${tagId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (!res.ok) throw new Error('删除标签失败');
-                
-                alert('标签删除成功');
-                loadTags();
-                loadStats();
-                
-            } catch (err) {
-                console.error('删除标签失败:', err);
-                alert('删除标签失败');
+      // ==================== 仪表盘 ====================
+      async function loadDashboard() {
+        try {
+          const s = await LC.api('/api/v1/admin/stats/summary');
+          document.getElementById('s-today').textContent = s.today_pages;
+          document.getElementById('s-week').textContent = s.week_pages;
+          document.getElementById('s-month').textContent = s.month_pages;
+          document.getElementById('s-pages').textContent = s.total_pages;
+          document.getElementById('s-users').textContent = s.total_users;
+          document.getElementById('s-downloads').textContent = s.total_downloads;
+          document.getElementById('s-reports').textContent = s.pending_reports;
+          document.getElementById('s-removed').textContent = s.removed_pages;
+          updateReportBadge(s.pending_reports);
+          loadUploadChart();
+          loadDownloadChart();
+          loadRankingChart();
+          loadTagChart();
+        } catch (err) {
+          LC.toast('加载统计数据失败：' + err.message, 'error');
+        }
+      }
+
+      async function loadUploadChart() {
+        try {
+          const data = await LC.api('/api/v1/admin/stats/uploads?period=' + state.uploadPeriod);
+          makeChart('upload-chart', {
+            type: 'bar',
+            data: {
+              labels: data.buckets.map(function (b) { return b.label; }),
+              datasets: [{ label: '上架内容数', data: data.buckets.map(function (b) { return b.count; }), backgroundColor: 'rgba(6,182,212,0.55)', borderColor: 'rgba(8,145,178,1)', borderWidth: 1, borderRadius: 4 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+          });
+          document.querySelectorAll('[data-period]').forEach(function (b) {
+            b.style.fontWeight = b.dataset.period === state.uploadPeriod ? '700' : 'normal';
+          });
+        } catch (err) { LC.toast('加载上架趋势失败：' + err.message, 'error'); }
+      }
+
+      async function loadDownloadChart() {
+        try {
+          const data = await LC.api('/api/v1/admin/stats/downloads?period=' + state.downloadPeriod);
+          makeChart('download-chart', {
+            type: 'line',
+            data: {
+              labels: data.buckets.map(function (b) { return b.label; }),
+              datasets: [{ label: '下载次数', data: data.buckets.map(function (b) { return b.count; }), backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,1)', fill: true, tension: 0.35, pointRadius: 3 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+          });
+          document.querySelectorAll('[data-dperiod]').forEach(function (b) {
+            b.style.fontWeight = b.dataset.dperiod === state.downloadPeriod ? '700' : 'normal';
+          });
+        } catch (err) { LC.toast('加载下载趋势失败：' + err.message, 'error'); }
+      }
+
+      async function loadRankingChart() {
+        try {
+          const data = await LC.api('/api/v1/admin/stats/rankings?limit=10&period=' + state.rankingPeriod);
+          makeChart('ranking-chart', {
+            type: 'bar',
+            data: {
+              labels: data.map(function (r) { return r.title.length > 8 ? r.title.slice(0, 8) + '…' : r.title; }),
+              datasets: [{ label: '下载量', data: data.map(function (r) { return r.download_count; }), backgroundColor: 'rgba(245,158,11,0.6)', borderColor: 'rgba(217,119,6,1)', borderWidth: 1, borderRadius: 4 }]
+            },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+          });
+          const tbody = document.querySelector('#ranking-table tbody');
+          if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">暂无下载数据</td></tr>';
+          } else {
+            tbody.innerHTML = data.map(function (r, i) {
+              return '<tr><td>' + (i + 1) + '</td><td><a href="/page/' + encodeURIComponent(r.uid) + '">' + LC.escapeHtml(r.title) + '</a></td><td>' + LC.escapeHtml(r.uploader || '匿名') + '</td><td>' + r.download_count + '</td></tr>';
+            }).join('');
+          }
+        } catch (err) { LC.toast('加载下载榜单失败：' + err.message, 'error'); }
+      }
+
+      async function loadTagChart() {
+        try {
+          const tags = await LC.api('/api/v1/admin/stats/tags');
+          const top = tags.filter(function (t) { return t.count > 0; }).slice(0, 10);
+          makeChart('tag-chart', {
+            type: 'doughnut',
+            data: {
+              labels: top.map(function (t) { return t.name; }),
+              datasets: [{ data: top.map(function (t) { return t.count; }), backgroundColor: top.map(function (t) { return t.color || '#06b6d4'; }) }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+          });
+        } catch (err) { LC.toast('加载标签分布失败：' + err.message, 'error'); }
+      }
+
+      function updateReportBadge(n) {
+        const badge = document.getElementById('report-badge');
+        if (n > 0) { badge.style.display = ''; badge.textContent = n; }
+        else badge.style.display = 'none';
+      }
+
+      // ==================== 内容管理 ====================
+      async function loadContent() {
+        const tbody = document.getElementById('content-tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="loading"><span class="spinner"></span>加载中…</td></tr>';
+        try {
+          const data = await LC.api('/api/v1/admin/pages' + LC.qs({
+            query: state.content.query, status: state.content.status,
+            page: state.content.page, page_size: 10
+          }));
+          if (!data.items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">没有找到内容</td></tr>';
+          } else {
+            tbody.innerHTML = data.items.map(function (p) {
+              const thumb = p.avatar_url ? '<img class="thumb" src="' + LC.escapeAttr(p.avatar_url) + '">' : '<span class="thumb-ph"><i class="fas fa-user-circle"></i></span>';
+              const tags = (p.tags || []).slice(0, 3).map(function (t) { return '<span class="badge badge-gray">' + LC.escapeHtml(t) + '</span>'; }).join(' ');
+              const statusBadge = p.status === 'published'
+                ? '<span class="badge badge-green">已上架</span>'
+                : '<span class="badge badge-red">已下架</span>';
+              return '<tr>' +
+                '<td>' + thumb + ' <a href="/page/' + encodeURIComponent(p.uid) + '">' + LC.escapeHtml(p.title) + '</a></td>' +
+                '<td>' + LC.escapeHtml(p.uploader || '匿名') + '</td>' +
+                '<td>' + tags + '</td>' +
+                '<td>' + p.download_count + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + LC.fmtDate(p.created_at) + '</td>' +
+                '<td style="white-space:nowrap">' +
+                  '<a class="btn-mini" href="/page/' + encodeURIComponent(p.uid) + '"><i class="fas fa-eye"></i></a> ' +
+                  '<button class="btn-mini warn" data-status-uid="' + p.uid + '" data-to="' + (p.status === 'published' ? 'removed' : 'published') + '">' + (p.status === 'published' ? '<i class="fas fa-ban"></i> 下架' : '<i class="fas fa-check"></i> 上架') + '</button> ' +
+                  '<button class="btn-mini danger" data-del-uid="' + p.uid + '"><i class="fas fa-trash"></i> 删除</button>' +
+                '</td></tr>';
+            }).join('');
+            tbody.querySelectorAll('[data-status-uid]').forEach(function (btn) {
+              btn.addEventListener('click', async function () {
+                try {
+                  await LC.api('/api/v1/admin/pages/' + btn.dataset.statusUid + '/status', {
+                    method: 'PUT', body: { status: btn.dataset.to }
+                  });
+                  LC.toast('操作成功', 'success');
+                  loadContent();
+                } catch (err) { LC.toast('操作失败：' + err.message, 'error'); }
+              });
+            });
+            tbody.querySelectorAll('[data-del-uid]').forEach(function (btn) {
+              btn.addEventListener('click', async function () {
+                if (!confirm('确定要删除该角色吗？此操作不可撤销。')) return;
+                try {
+                  await LC.api('/api/v1/admin/pages/' + btn.dataset.delUid, { method: 'DELETE' });
+                  LC.toast('已删除', 'success');
+                  loadContent();
+                } catch (err) { LC.toast('删除失败：' + err.message, 'error'); }
+              });
+            });
+          }
+          renderPagination('content-pagination', data, function (p) { state.content.page = p; loadContent(); });
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty-state">加载失败：' + LC.escapeHtml(err.message) + '</td></tr>';
+        }
+      }
+
+      // ==================== 举报审阅 ====================
+      async function loadReports() {
+        const tbody = document.getElementById('reports-tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="loading"><span class="spinner"></span>加载中…</td></tr>';
+        try {
+          const counts = await LC.api('/api/v1/admin/reports/counts');
+          updateReportBadge(counts.pending || 0);
+          const data = await LC.api('/api/v1/admin/reports' + LC.qs({
+            status: state.reports.status, page: state.reports.page, page_size: 10
+          }));
+          if (!data.items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无举报记录</td></tr>';
+          } else {
+            tbody.innerHTML = data.items.map(function (r) {
+              const statusMap = {
+                pending: '<span class="badge badge-orange">待处理</span>',
+                approved: '<span class="badge badge-green">已通过</span>',
+                rejected: '<span class="badge badge-gray">已驳回</span>',
+              };
+              const actions = r.status === 'pending'
+                ? '<button class="btn-mini warn" data-review="' + r.id + '"><i class="fas fa-gavel"></i> 处理</button>'
+                : '<span style="font-size:12px;color:var(--muted)">' + LC.escapeHtml(r.handled_by || '') + (r.handled_at ? '<br>' + LC.fmtDateTime(r.handled_at) : '') + '</span>';
+              return '<tr>' +
+                '<td><a href="/page/' + LC.escapeAttr(r.page_uid || '') + '">' + LC.escapeHtml(r.page_title || '(内容已删除)') + '</a></td>' +
+                '<td>' + LC.escapeHtml(r.reporter) + '</td>' +
+                '<td><span class="badge badge-red">' + LC.escapeHtml(r.category) + '</span></td>' +
+                '<td style="max-width:280px;word-break:break-word" title="' + LC.escapeAttr(r.reason) + '">' + LC.escapeHtml(r.reason.length > 60 ? r.reason.slice(0, 60) + '…' : r.reason) + '</td>' +
+                '<td>' + (statusMap[r.status] || r.status) + '</td>' +
+                '<td>' + LC.fmtDateTime(r.created_at) + '</td>' +
+                '<td style="white-space:nowrap">' + actions + '</td></tr>';
+            }).join('');
+            tbody.querySelectorAll('[data-review]').forEach(function (btn) {
+              btn.addEventListener('click', function () { openReview(parseInt(btn.dataset.review, 10)); });
+            });
+          }
+          renderPagination('reports-pagination', data, function (p) { state.reports.page = p; loadReports(); });
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty-state">加载失败：' + LC.escapeHtml(err.message) + '</td></tr>';
+        }
+      }
+
+      function openReview(id) {
+        reviewTarget = id;
+        document.getElementById('review-note').value = '';
+        document.getElementById('review-remove').checked = false;
+        document.getElementById('review-summary').textContent = '处理举报 #' + id;
+        document.getElementById('review-mask').style.display = '';
+      }
+
+      async function submitReview(action) {
+        if (!reviewTarget) return;
+        try {
+          await LC.api('/api/v1/admin/reports/' + reviewTarget + '/review', {
+            method: 'POST',
+            body: {
+              action: action,
+              remove_page: document.getElementById('review-remove').checked,
+              note: document.getElementById('review-note').value
             }
+          });
+          LC.toast(action === 'approve' ? '举报已通过' : '举报已驳回', 'success');
+          document.getElementById('review-mask').style.display = 'none';
+          loadReports();
+        } catch (err) {
+          LC.toast('处理失败：' + err.message, 'error');
         }
+      }
 
-        // 查看某天详情
-        function viewDayDetails(date) {
-            window.location.href = `/admin/day/${date}`;
+      // ==================== 用户管理 ====================
+      async function loadUsers() {
+        const tbody = document.getElementById('users-tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="loading"><span class="spinner"></span>加载中…</td></tr>';
+        try {
+          const data = await LC.api('/api/v1/admin/users' + LC.qs({
+            query: state.users.query, page: state.users.page, page_size: 20
+          }));
+          if (!data.items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">没有找到用户</td></tr>';
+          } else {
+            const isSuper = me && me.role === 'super_admin';
+            tbody.innerHTML = data.items.map(function (u) {
+              const roleBadge = u.role === 'super_admin' ? '<span class="badge badge-red">超级管理员</span>'
+                : u.role === 'admin' ? '<span class="badge badge-blue">管理员</span>'
+                : '<span class="badge badge-gray">普通用户</span>';
+              const statusBadge = u.is_active ? '<span class="badge badge-green">正常</span>' : '<span class="badge badge-red">已封禁</span>';
+              const roleSelect = isSuper
+                ? '<select class="select" style="padding:5px 8px;font-size:13px" data-role-id="' + u.id + '">' +
+                  ['user', 'admin', 'super_admin'].map(function (r) {
+                    return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>';
+                  }).join('') + '</select>'
+                : roleBadge;
+              const banBtn = '<button class="btn-mini ' + (u.is_active ? 'danger' : '') + '" data-ban-id="' + u.id + '" data-ban-to="' + (!u.is_active) + '">' + (u.is_active ? '<i class="fas fa-ban"></i> 封禁' : '<i class="fas fa-undo"></i> 解封') + '</button>';
+              return '<tr>' +
+                '<td>' + u.id + '</td>' +
+                '<td><strong>' + LC.escapeHtml(u.username) + '</strong></td>' +
+                '<td>' + roleSelect + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + u.page_count + '</td>' +
+                '<td>' + LC.fmtDate(u.created_at) + '</td>' +
+                '<td>' + banBtn + '</td></tr>';
+            }).join('');
+            tbody.querySelectorAll('[data-role-id]').forEach(function (sel) {
+              sel.addEventListener('change', async function () {
+                try {
+                  await LC.api('/api/v1/admin/users/' + sel.dataset.roleId + '/role', { method: 'PUT', body: { role: sel.value } });
+                  LC.toast('角色已更新', 'success');
+                } catch (err) {
+                  LC.toast('更新失败：' + err.message, 'error');
+                  loadUsers();
+                }
+              });
+            });
+            tbody.querySelectorAll('[data-ban-id]').forEach(function (btn) {
+              btn.addEventListener('click', async function () {
+                const toBan = btn.dataset.banTo === 'true';
+                if (toBan && !confirm('确定要封禁该用户吗？封禁后其无法登录。')) return;
+                try {
+                  await LC.api('/api/v1/admin/users/' + btn.dataset.banId + '/status', { method: 'PUT', body: { is_active: !toBan } });
+                  LC.toast(toBan ? '已封禁' : '已解封', 'success');
+                  loadUsers();
+                } catch (err) { LC.toast('操作失败：' + err.message, 'error'); }
+              });
+            });
+          }
+          renderPagination('users-pagination', data, function (p) { state.users.page = p; loadUsers(); });
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty-state">加载失败：' + LC.escapeHtml(err.message) + '</td></tr>';
         }
+      }
 
-        // 页面加载时获取数据
-        document.addEventListener('DOMContentLoaded', loadStats);
-    </script>
+      // ==================== 标签管理 ====================
+      async function loadTags() {
+        const tbody = document.getElementById('tags-tbody');
+        try {
+          const tags = await LC.api('/api/v1/admin/tags');
+          if (!tags.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">暂无标签</td></tr>';
+            return;
+          }
+          tbody.innerHTML = tags.map(function (t) {
+            return '<tr>' +
+              '<td><span class="tag-chip" style="background:' + LC.escapeAttr(t.color || '#3b82f6') + ';color:#fff;border:none">' + LC.escapeHtml(t.name) + '</span></td>' +
+              '<td><input type="color" value="' + LC.escapeAttr(t.color || '#3b82f6') + '" data-color-id="' + t.id + '" style="width:44px;padding:2px;border:1px solid var(--border);border-radius:6px"></td>' +
+              '<td>' + t.count + '</td>' +
+              '<td><button class="btn-mini danger" data-del-tag="' + t.id + '"><i class="fas fa-trash"></i> 删除</button></td></tr>';
+          }).join('');
+          tbody.querySelectorAll('[data-color-id]').forEach(function (input) {
+            input.addEventListener('change', async function () {
+              try {
+                await LC.api('/api/v1/admin/tags/' + input.dataset.colorId, { method: 'PUT', body: { color: input.value } });
+                LC.toast('颜色已更新', 'success');
+              } catch (err) { LC.toast('更新失败：' + err.message, 'error'); }
+            });
+          });
+          tbody.querySelectorAll('[data-del-tag]').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+              if (!confirm('确定要删除该标签吗？')) return;
+              try {
+                await LC.api('/api/v1/admin/tags/' + btn.dataset.delTag, { method: 'DELETE' });
+                LC.toast('标签已删除', 'success');
+                loadTags();
+              } catch (err) { LC.toast('删除失败：' + err.message, 'error'); }
+            });
+          });
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="4" class="empty-state">加载失败：' + LC.escapeHtml(err.message) + '</td></tr>';
+        }
+      }
+
+      // ==================== 分页渲染 ====================
+      function renderPagination(id, data, cb) {
+        const el = document.getElementById(id);
+        if (!data || data.total_pages <= 1) { el.innerHTML = ''; return; }
+        el.innerHTML =
+          '<button ' + (data.page <= 1 ? 'disabled' : '') + ' data-pg="prev">上一页</button>' +
+          '<span class="page-info">第 ' + data.page + ' / ' + data.total_pages + ' 页 · 共 ' + data.total + ' 条</span>' +
+          '<button ' + (data.page >= data.total_pages ? 'disabled' : '') + ' data-pg="next">下一页</button>';
+        el.querySelector('[data-pg=prev]').addEventListener('click', function () { cb(data.page - 1); });
+        el.querySelector('[data-pg=next]').addEventListener('click', function () { cb(data.page + 1); });
+      }
+
+      // ==================== 事件绑定 ====================
+      document.querySelectorAll('.side-nav button[data-tab]').forEach(function (btn) {
+        btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
+      });
+      document.querySelectorAll('[data-period]').forEach(function (btn) {
+        btn.addEventListener('click', function () { state.uploadPeriod = btn.dataset.period; loadUploadChart(); });
+      });
+      document.querySelectorAll('[data-dperiod]').forEach(function (btn) {
+        btn.addEventListener('click', function () { state.downloadPeriod = btn.dataset.dperiod; loadDownloadChart(); });
+      });
+      document.getElementById('ranking-period').addEventListener('change', function () {
+        state.rankingPeriod = this.value;
+        loadRankingChart();
+      });
+
+      document.getElementById('content-search-btn').addEventListener('click', function () {
+        state.content.query = document.getElementById('content-search').value.trim();
+        state.content.status = document.getElementById('content-status').value;
+        state.content.page = 1;
+        loadContent();
+      });
+      document.getElementById('content-search').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') document.getElementById('content-search-btn').click();
+      });
+      document.getElementById('content-status').addEventListener('change', function () {
+        state.content.status = this.value;
+        state.content.page = 1;
+        loadContent();
+      });
+
+      document.querySelectorAll('[data-rstatus]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('[data-rstatus]').forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          state.reports.status = btn.dataset.rstatus;
+          state.reports.page = 1;
+          loadReports();
+        });
+      });
+
+      document.getElementById('user-search-btn').addEventListener('click', function () {
+        state.users.query = document.getElementById('user-search').value.trim();
+        state.users.page = 1;
+        loadUsers();
+      });
+      document.getElementById('user-search').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') document.getElementById('user-search-btn').click();
+      });
+
+      document.getElementById('add-tag-btn').addEventListener('click', async function () {
+        const name = document.getElementById('new-tag-name').value.trim();
+        if (!name) { LC.toast('请输入标签名称', 'warning'); return; }
+        try {
+          await LC.api('/api/v1/admin/tags', {
+            method: 'POST',
+            body: { name: name, color: document.getElementById('new-tag-color').value }
+          });
+          LC.toast('标签添加成功', 'success');
+          document.getElementById('new-tag-name').value = '';
+          loadTags();
+        } catch (err) { LC.toast('添加失败：' + err.message, 'error'); }
+      });
+
+      document.getElementById('review-close').addEventListener('click', function () { document.getElementById('review-mask').style.display = 'none'; });
+      document.getElementById('review-approve').addEventListener('click', function () { submitReview('approve'); });
+      document.getElementById('review-reject').addEventListener('click', function () { submitReview('reject'); });
+      document.getElementById('review-mask').addEventListener('click', function (e) {
+        if (e.target === this) this.style.display = 'none';
+      });
+
+      // ==================== 启动 ====================
+      (async function init() {
+        if (!(await guard())) return;
+        LC.renderAuth();
+        switchTab('dashboard');
+        // 定期刷新待审举报角标
+        setInterval(async function () {
+          try {
+            const counts = await LC.api('/api/v1/admin/reports/counts');
+            updateReportBadge(counts.pending || 0);
+          } catch (e) { /* 忽略 */ }
+        }, 60000);
+      })();
+    })();
+  </script>
 </body>
 </html>

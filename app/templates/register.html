@@ -2,56 +2,63 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>注册 - LingChat communitymods</title>
   <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <h1 class="site-title">注册</h1>
-      <a class="btn small" href="/">返回</a>
+      <h1 class="site-title"><a href="/">LingChat communitymods</a></h1>
+      <nav class="nav-links">
+        <a href="/pages">浏览角色</a>
+        <a id="auth-link" class="btn small" href="/login">登录</a>
+      </nav>
     </div>
   </header>
   <main class="container">
-    <section class="card form-card">
-      <h2>创建账号</h2>
+    <section class="card form-card" style="max-width:460px;margin:0 auto">
+      <h2><i class="fas fa-user-plus"></i> 创建账号</h2>
       <form id="register-form">
-        <label for="username">用户名:</label>
-        <input id="username" name="username" type="text" required>
-
-        <label for="password">密码:</label>
-        <input id="password" name="password" type="password" required>
-
-        <button class="btn" type="submit">注册</button>
+        <div class="field">
+          <label for="username">用户名</label>
+          <input class="input" id="username" name="username" type="text" required autocomplete="username"
+                 placeholder="3-32 位字母、数字、下划线或中文">
+        </div>
+        <div class="field">
+          <label for="password">密码</label>
+          <input class="input" id="password" name="password" type="password" required autocomplete="new-password"
+                 placeholder="至少 6 位">
+        </div>
+        <div class="field">
+          <label for="confirm">确认密码</label>
+          <input class="input" id="confirm" name="confirm" type="password" required autocomplete="new-password">
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%">注册</button>
       </form>
-      <p>已有账号？ <a href="/login">登录</a></p>
+      <p>已有账号？ <a href="/login">去登录</a></p>
     </section>
   </main>
 
+  <script src="/static/js/common.js"></script>
   <script>
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
+    document.getElementById('register-form').addEventListener('submit', async function (e) {
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
-
+      const confirm = document.getElementById('confirm').value;
+      if (password !== confirm) { LC.toast('两次输入的密码不一致', 'warning'); return; }
       try {
-        const res = await fetch('/api/v1/auth/register', {
+        const data = await LC.api('/api/v1/auth/register', {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({username, password})
+          body: { username: username, password: password }
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          alert('注册失败: ' + (err?.detail ?? res.status));
-          return;
-        }
-        const data = await res.json();
-        // 自动登录：保存用户名
-        localStorage.setItem('auth_user', data.username);
-        window.location.href = '/create';
+        LC.setToken(data.token);
+        LC.setUser(data.user);
+        LC.toast('注册成功，已自动登录', 'success');
+        setTimeout(function () { window.location.href = '/'; }, 600);
       } catch (err) {
-        console.error(err);
-        alert('注册出错');
+        LC.toast('注册失败：' + err.message, 'error');
       }
     });
   </script>

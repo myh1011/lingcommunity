@@ -1,10 +1,12 @@
-Flask
-Flask-SQLAlchemy
-Flask-Migrate
-Flask-RESTful
+# Web 框架
+fastapi
+uvicorn
+
+# 数据库
+SQLAlchemy
+pymysql
+
+# 配置与校验
 pydantic
 python-dotenv
-fastapi
-python-multipart       
-pymysql        
-uvicorn
+python-multipart

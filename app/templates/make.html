@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>角色创建器 - LingChat communitymods</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <h1 class="site-title"><a href="/">LingChat communitymods</a></h1>
+      <nav class="nav-links">
+        <a href="/">首页</a>
+        <a href="/pages">浏览角色</a>
+        <span id="auth-info"></span>
+        <a id="auth-link" class="btn small" href="/login">登录</a>
+        <a id="admin-link" class="btn small" href="/admin" style="display:none">管理后台</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="side-layout">
+      <aside class="side-nav" id="tab-nav">
+        <button data-tab="basic" class="active"><i class="fas fa-id-card"></i> 基本信息</button>
+        <button data-tab="prompts"><i class="fas fa-comment"></i> 系统提示词</button>
+        <button data-tab="visuals"><i class="fas fa-image"></i> 立绘设置</button>
+        <button data-tab="clothes"><i class="fas fa-tshirt"></i> 服装列表</button>
+        <button data-tab="voice"><i class="fas fa-microphone"></i> 语音设置</button>
+        <button data-tab="publish"><i class="fas fa-rocket"></i> 发布</button>
+      </aside>
+
+      <section class="card" style="margin-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+          <h2 id="form-title" style="margin:0"><i class="fas fa-magic"></i> 创建新角色</h2>
+          <div style="display:flex;gap:10px">
+            <button class="btn small" id="cancel-btn" style="margin:0">取消</button>
+            <button class="btn btn-primary" id="save-btn" style="margin:0"><i class="fas fa-save"></i> 保存角色</button>
+          </div>
+        </div>
+        <div id="form-hint" class="hint" style="margin-bottom:14px;display:none"></div>
+
+        <!-- 各标签面板 -->
+        <div class="tab-panel" id="panel-basic">
+          <div id="fields-basic"></div>
+        </div>
+        <div class="tab-panel" id="panel-prompts" style="display:none">
+          <div id="fields-prompts"></div>
+        </div>
+        <div class="tab-panel" id="panel-visuals" style="display:none">
+          <div id="fields-visuals"></div>
+        </div>
+        <div class="tab-panel" id="panel-clothes" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h3 style="margin:0">服装列表</h3>
+            <button class="btn-mini" id="add-clothes"><i class="fas fa-plus"></i> 添加服装</button>
+          </div>
+          <div id="clothes-list"></div>
+          <div id="clothes-empty" class="empty-state" style="display:none"><i class="fas fa-tshirt"></i>暂无服装，点击“添加服装”开始</div>
+        </div>
+        <div class="tab-panel" id="panel-voice" style="display:none">
+          <div id="fields-voice"></div>
+        </div>
+        <div class="tab-panel" id="panel-publish" style="display:none">
+          <div class="field">
+            <label>角色头像（可选）</label>
+            <input class="input" type="file" id="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+            <div class="avatar-preview" id="avatar-preview" style="display:none"><img id="avatar-preview-img" src="" alt="头像预览"></div>
+            <div id="avatar-clear" class="hint" style="display:none"><a href="#" id="avatar-clear-link">移除已上传头像</a></div>
+          </div>
+          <div class="field">
+            <label>标签（逗号分隔）</label>
+            <input class="input" type="text" id="tags" placeholder="例如: AI助手, 中文, 智能对话">
+            <div id="popular-tags" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+          </div>
+          <div class="field">
+            <label>下载地址（直链） <span style="color:var(--danger)">*</span></label>
+            <input class="input" type="text" id="url" placeholder="https://example.com/download.zip">
+            <div class="hint">必须是 http/https 直链。不知道怎么获取？<a href="/download_url" target="_blank">查看帮助</a></div>
+          </div>
+          <div class="field">
+            <label>角色介绍 <span style="color:var(--danger)">*</span></label>
+            <textarea class="textarea" id="info" rows="6" placeholder="角色的公开介绍，支持 Markdown。留空则自动使用基本信息中的“角色介绍”字段。"></textarea>
+            <div class="hint">此处与“基本信息 → 角色介绍”同步，也可以单独覆盖。</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/static/js/common.js"></script>
+  <script>
+    (function () {
+      // ==================== 字段 Schema（参照 LingChat SettingsCharacterInfo 结构） ====================
+      const DEFAULTS = {
+        ai_name: '', ai_subtitle: '', user_name: '', user_subtitle: '',
+        title: '', info: '',
+        system_prompt: '', system_prompt_example: '', system_prompt_example_old: '',
+        scale: 1.0, offset_x: 0, offset_y: 0, bubble_top: 0, bubble_left: 0,
+        thinking_message: '',
+        scale_p: 1.0, offset_x_p: 0, offset_y_p: 0,
+        clothes: [],
+        tts_type: 'sva', voice_lang: 'zh',
+        voice_models: {
+          sva_speaker_id: '', sbv2_name: '', sbv2_speaker_id: '', bv2_speaker_id: '',
+          sbv2api_name: '', sbv2api_speaker_id: '',
+          gsv_voice_text: '', gsv_voice_filename: '', gsv_gpt_model_name: '', gsv_sovits_model_name: '',
+          opentts_voice: '', aivis_model_uuid: '', fish_s2_voice: '',
+          sbv2_local_voice_id: '', sbv2_local_speaker_id: '', sbv2_local_style_id: '',
+        },
+      };
+
+      const TTS_TYPES = ['sva', 'sbv2', 'bv2', 'sbv2api', 'gsv', 'aivis', 'opentts', 'fishs2', 'indextts2', 'localsbv2api'];
+      const VOICE_LANGS = ['ja', 'zh', 'en', 'ko'];
+
+      const SCHEMAS = {
+        basic: [
+          { key: 'ai_name', label: '角色名 (ai_name)', type: 'text', placeholder: '角色的名字' },
+          { key: 'ai_subtitle', label: '称号 (ai_subtitle)', type: 'text', placeholder: '例如：温柔的邻家少女' },
+          { key: 'user_name', label: '对用户的称呼 (user_name)', type: 'text', placeholder: '例如：主人' },
+          { key: 'user_subtitle', label: '用户称号 (user_subtitle)', type: 'text', placeholder: '例如：旅行者' },
+          { key: 'title', label: '显示标题 (title)', type: 'text', placeholder: '列表页展示的标题，建议填写' },
+          { key: 'info', label: '角色介绍 (info)', type: 'textarea', rows: 5, placeholder: '角色的公开介绍，支持 Markdown' },
+        ],
+        prompts: [
+          { key: 'system_prompt', label: '系统提示词 (system_prompt)', type: 'textarea', rows: 10, placeholder: '角色的核心人设与行为规则…' },
+          { key: 'system_prompt_example', label: '提示词示例 (system_prompt_example)', type: 'textarea', rows: 6, placeholder: '对话示例…' },
+          { key: 'system_prompt_example_old', label: '旧版提示词示例 (system_prompt_example_old)', type: 'textarea', rows: 4, placeholder: '可选，旧版本兼容字段' },
+        ],
+        visuals: [
+          { key: 'scale', label: '立绘缩放 (scale)', type: 'number', step: '0.01' },
+          { key: 'offset_x', label: '水平偏移 (offset_x)', type: 'number', step: '0.1' },
+          { key: 'offset_y', label: '垂直偏移 (offset_y)', type: 'number', step: '0.1' },
+          { key: 'bubble_top', label: '气泡上边距 (bubble_top)', type: 'number' },
+          { key: 'bubble_left', label: '气泡左边距 (bubble_left)', type: 'number' },
+          { key: 'thinking_message', label: '思考提示语 (thinking_message)', type: 'text', placeholder: '角色思考时显示的文字' },
+          { key: 'scale_p', label: '宠物缩放 (scale_p)', type: 'number', step: '0.01' },
+          { key: 'offset_x_p', label: '宠物水平偏移 (offset_x_p)', type: 'number', step: '0.1' },
+          { key: 'offset_y_p', label: '宠物垂直偏移 (offset_y_p)', type: 'number', step: '0.1' },
+        ],
+        voice: [
+          { key: 'tts_type', label: '语音引擎 (tts_type)', type: 'select', options: TTS_TYPES },
+          { key: 'voice_lang', label: '语音语言 (voice_lang)', type: 'select', options: VOICE_LANGS },
+          { key: 'sva_speaker_id', label: 'sva_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sva'; } },
+          { key: 'sbv2_name', label: 'sbv2_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2'; } },
+          { key: 'sbv2_speaker_id', label: 'sbv2_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2'; } },
+          { key: 'bv2_speaker_id', label: 'bv2_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'bv2'; } },
+          { key: 'sbv2api_name', label: 'sbv2api_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2api'; } },
+          { key: 'sbv2api_speaker_id', label: 'sbv2api_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2api'; } },
+          { key: 'gsv_voice_text', label: 'gsv_voice_text', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
+          { key: 'gsv_voice_filename', label: 'gsv_voice_filename', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
+          { key: 'gsv_gpt_model_name', label: 'gsv_gpt_model_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
+          { key: 'gsv_sovits_model_name', label: 'gsv_sovits_model_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
+          { key: 'aivis_model_uuid', label: 'aivis_model_uuid', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'aivis'; } },
+          { key: 'opentts_voice', label: 'opentts_voice', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'opentts'; } },
+          { key: 'fish_s2_voice', label: 'fish_s2_voice', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'fishs2'; } },
+          { key: 'sbv2_local_voice_id', label: '本地语音ID', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'localsbv2api'; } },
+          { key: 'sbv2_local_speaker_id', label: '说话人ID', type: 'number', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'localsbv2api'; } },
+          { key: 'sbv2_local_style_id', label: '风格ID', type: 'number', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'localsbv2api'; } },
+        ],
+      };
+
+      // ==================== 状态 ====================
+      const urlParams = new URLSearchParams(window.location.search);
+      const editUid = urlParams.get('uid');
+      const settings = JSON.parse(JSON.stringify(DEFAULTS));
+      let clothes = [];
+      let existingPage = null;
+      let activeTab = 'basic';
+
+      function deepMerge(target, source) {
+        Object.keys(source || {}).forEach(function (k) {
+          const v = source[k];
+          if (v && typeof v === 'object' && !Array.isArray(v)) {
+            if (!target[k] || typeof target[k] !== 'object' || Array.isArray(target[k])) target[k] = {};
+            deepMerge(target[k], v);
+          } else if (v !== null && v !== undefined) {
+            target[k] = v;
+          }
+        });
+        return target;
+      }
+
+      function getFieldValue(field) {
+        const target = field.parent ? (settings[field.parent] || (settings[field.parent] = {})) : settings;
+        return target[field.key];
+      }
+      function setFieldValue(field, value) {
+        const target = field.parent ? (settings[field.parent] || (settings[field.parent] = {})) : settings;
+        target[field.key] = value;
+      }
+
+      // ==================== 渲染字段 ====================
+      function renderFields(tab, containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        SCHEMAS[tab].forEach(function (field) {
+          const wrap = document.createElement('div');
+          wrap.className = 'field';
+          wrap.dataset.field = field.key;
+          const label = document.createElement('label');
+          label.textContent = field.label;
+          wrap.appendChild(label);
+          let input;
+          if (field.type === 'textarea') {
+            input = document.createElement('textarea');
+            input.className = 'textarea';
+            input.rows = field.rows || 4;
+            input.placeholder = field.placeholder || '';
+            input.value = getFieldValue(field) || '';
+            input.addEventListener('input', function () { setFieldValue(field, input.value); });
+          } else if (field.type === 'select') {
+            input = document.createElement('select');
+            input.className = 'select';
+            field.options.forEach(function (opt) {
+              const o = document.createElement('option');
+              o.value = opt;
+              o.textContent = opt;
+              input.appendChild(o);
+            });
+            input.value = getFieldValue(field) != null ? String(getFieldValue(field)) : '';
+            input.addEventListener('change', function () {
+              setFieldValue(field, input.value);
+              refreshVisibility();
+            });
+          } else {
+            input = document.createElement('input');
+            input.className = 'input';
+            input.type = field.type === 'number' ? 'number' : 'text';
+            if (field.step) input.step = field.step;
+            input.placeholder = field.placeholder || '';
+            const val = getFieldValue(field);
+            input.value = val != null && val !== '' ? val : '';
+            input.addEventListener('input', function () {
+              setFieldValue(field, field.type === 'number' ? parseFloat(input.value || '0') : input.value);
+            });
+          }
+          wrap.appendChild(input);
+          container.appendChild(wrap);
+        });
+        refreshVisibility();
+      }
+
+      function refreshVisibility() {
+        // 语音字段的显隐（与 LingChat 的 visibleIf 一致）
+        const voiceFields = document.querySelectorAll('#fields-voice [data-field]');
+        voiceFields.forEach(function (wrap) {
+          const key = wrap.dataset.field;
+          const field = SCHEMAS.voice.find(function (f) { return f.key === key; });
+          if (field && field.visibleIf) {
+            wrap.style.display = field.visibleIf(settings) ? '' : 'none';
+          }
+        });
+      }
+
+      // ==================== 服装 ====================
+      function renderClothes() {
+        const list = document.getElementById('clothes-list');
+        list.innerHTML = '';
+        clothes.forEach(function (item, idx) {
+          const box = document.createElement('div');
+          box.style.cssText = 'padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px';
+          box.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+            '<strong style="font-size:14px">服装 #' + (idx + 1) + '</strong>' +
+            '<button class="btn-mini danger" data-remove="' + idx + '"><i class="fas fa-times"></i> 删除</button></div>' +
+            '<div class="field"><label>名称 (name)</label>' +
+            '<input class="input clothes-name" type="text" value="' + LC.escapeAttr(item.name || '') + '" placeholder="例如：夏日连衣裙"></div>' +
+            '<div class="field"><label>提示词 (prompt)</label>' +
+            '<textarea class="textarea clothes-prompt" rows="3" placeholder="描述该服装的提示词…">' + LC.escapeHtml(item.prompt || '') + '</textarea></div>';
+          list.appendChild(box);
+          box.querySelector('.clothes-name').addEventListener('input', function (e) { clothes[idx].name = e.target.value; });
+          box.querySelector('.clothes-prompt').addEventListener('input', function (e) { clothes[idx].prompt = e.target.value; });
+          box.querySelector('[data-remove]').addEventListener('click', function () {
+            clothes.splice(idx, 1);
+            renderClothes();
+          });
+        });
+        document.getElementById('clothes-empty').style.display = clothes.length ? 'none' : '';
+      }
+
+      // ==================== Tab 切换 ====================
+      function switchTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll('#tab-nav button').forEach(function (b) {
+          b.classList.toggle('active', b.dataset.tab === tab);
+        });
+        ['basic', 'prompts', 'visuals', 'clothes', 'voice', 'publish'].forEach(function (t) {
+          document.getElementById('panel-' + t).style.display = t === tab ? '' : 'none';
+        });
+      }
+
+      // ==================== 加载 / 保存 ====================
+      async function loadEditMode() {
+        if (!editUid) return;
+        try {
+          const page = await LC.api('/api/v1/pages/' + encodeURIComponent(editUid));
+          existingPage = page;
+          deepMerge(settings, page.settings || {});
+          clothes = Array.isArray(settings.clothes) ? JSON.parse(JSON.stringify(settings.clothes)) : [];
+          document.getElementById('form-title').textContent = '编辑角色：' + (page.title || '');
+          document.getElementById('form-hint').style.display = '';
+          document.getElementById('form-hint').innerHTML =
+            '正在编辑 <a href="/page/' + encodeURIComponent(page.uid) + '">' + LC.escapeHtml(page.title) + '</a> 的设定';
+          document.getElementById('url').value = page.url;
+          document.getElementById('tags').value = (page.tags || []).join(', ');
+          document.getElementById('info').value = settings.info || page.body || '';
+          if (page.avatar_url) {
+            const preview = document.getElementById('avatar-preview');
+            preview.style.display = '';
+            document.getElementById('avatar-preview-img').src = page.avatar_url;
+            document.getElementById('avatar-clear').style.display = '';
+          }
+          // 数据加载后重新渲染各字段与服装列表，回填编辑内容
+          renderFields('basic', 'fields-basic');
+          renderFields('prompts', 'fields-prompts');
+          renderFields('visuals', 'fields-visuals');
+          renderFields('voice', 'fields-voice');
+          renderClothes();
+        } catch (err) {
+          LC.toast('加载角色失败：' + err.message, 'error');
+          window.location.href = '/pages';
+        }
+      }
+
+      async function save() {
+        if (!LC.requireLogin()) return;
+        if (!editUid && !LC.getUser()) return;
+
+        // 信息字段与页面字段的映射：title ← title || ai_name；body ← info 字段（可被发布页覆盖）
+        const publishInfo = document.getElementById('info').value.trim();
+        const title = (settings.title || settings.ai_name || '').trim();
+        const info = publishInfo || (settings.info || '').trim();
+        const url = document.getElementById('url').value.trim();
+        if (!title) { switchTab('basic'); LC.toast('请填写角色名或显示标题', 'warning'); return; }
+        if (!info) { switchTab('publish'); LC.toast('请填写角色介绍', 'warning'); return; }
+        if (!url) { switchTab('publish'); LC.toast('请填写下载地址', 'warning'); return; }
+
+        settings.clothes = clothes;
+        const clearAvatar = !!settings.__clear_avatar;
+        delete settings.__clear_avatar;
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('body', info);
+        formData.append('url', url);
+        formData.append('tags', document.getElementById('tags').value);
+        formData.append('settings', JSON.stringify(settings));
+        const avatarFile = document.getElementById('avatar').files[0];
+        if (avatarFile) formData.append('avatar', avatarFile);
+        if (clearAvatar) formData.append('clear_avatar', 'true');
+
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 保存中…';
+        try {
+          const data = editUid
+            ? await LC.api('/api/v1/pages/' + encodeURIComponent(editUid), { method: 'PUT', body: formData })
+            : await LC.api('/api/v1/pages', { method: 'POST', body: formData });
+          LC.toast(editUid ? '保存成功' : '创建成功！', 'success');
+          setTimeout(function () { window.location.href = '/page/' + encodeURIComponent(data.uid); }, 600);
+        } catch (err) {
+          LC.toast('保存失败：' + err.message, 'error');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-save"></i> 保存角色';
+        }
+      }
+
+      // ==================== 初始化 ====================
+      async function loadPopularTags() {
+        try {
+          const tags = await LC.api('/api/v1/pages/tags');
+          document.getElementById('popular-tags').innerHTML = tags.slice(0, 10).map(function (tag) {
+            return '<span class="tag-chip">' + LC.escapeHtml(tag.name) + '</span>';
+          }).join('');
+          document.querySelectorAll('#popular-tags .tag-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+              const input = document.getElementById('tags');
+              const current = input.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+              const name = chip.textContent.trim();
+              if (!current.includes(name)) current.push(name);
+              input.value = current.join(', ');
+            });
+          });
+        } catch (err) { /* 忽略 */ }
+      }
+
+      document.querySelectorAll('#tab-nav button').forEach(function (btn) {
+        btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
+      });
+      document.getElementById('add-clothes').addEventListener('click', function () {
+        clothes.push({ name: '', prompt: '' });
+        renderClothes();
+      });
+      document.getElementById('save-btn').addEventListener('click', save);
+      document.getElementById('cancel-btn').addEventListener('click', function () {
+        if (editUid) window.location.href = '/page/' + encodeURIComponent(editUid);
+        else window.location.href = '/';
+      });
+      document.getElementById('avatar').addEventListener('change', function () {
+        const file = this.files[0];
+        const preview = document.getElementById('avatar-preview');
+        if (file) {
+          preview.style.display = '';
+          document.getElementById('avatar-preview-img').src = URL.createObjectURL(file);
+        }
+      });
+      document.getElementById('avatar-clear-link').addEventListener('click', function (e) {
+        e.preventDefault();
+        document.getElementById('avatar').value = '';
+        document.getElementById('avatar-preview').style.display = 'none';
+        document.getElementById('avatar-clear').style.display = 'none';
+        settings.__clear_avatar = true;
+      });
+
+      renderFields('basic', 'fields-basic');
+      renderFields('prompts', 'fields-prompts');
+      renderFields('visuals', 'fields-visuals');
+      renderFields('voice', 'fields-voice');
+      renderClothes();
+      loadPopularTags();
+      loadEditMode();
+    })();
+  </script>
+</body>
+</html>

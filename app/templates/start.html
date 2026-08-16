@@ -2,73 +2,102 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8">
-  <title>开始 - LingChat communitymods</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LingChat communitymods - 角色分享社区</title>
   <link rel="stylesheet" href="/static/css/styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <h1 class="site-title">LingChat communitymods</h1>
-      <div class="auth-info">
+      <h1 class="site-title"><a href="/">LingChat communitymods</a></h1>
+      <nav class="nav-links">
+        <a href="/pages"><i class="fas fa-compass"></i> 浏览角色</a>
+        <a href="/make"><i class="fas fa-plus-circle"></i> 创建角色</a>
+        <a href="/create"><i class="fas fa-upload"></i> 上传角色</a>
         <span id="auth-info"></span>
         <a id="auth-link" class="btn small" href="/login">登录</a>
-        <a id="register-link" class="btn small" href="/register">注册</a>
-      </div>
+        <a id="admin-link" class="btn small" href="/admin" style="display:none"><i class="fas fa-shield-alt"></i> 管理后台</a>
+      </nav>
     </div>
   </header>
+
   <main class="container">
     <section class="hero-card">
       <div class="hero-content">
-        <h2>欢迎来到LingChat创意工坊</h2>
+        <h2>欢迎来到 LingChat 创意工坊</h2>
         <p>在这里，您可以创建、分享和发现各种精彩的角色模型。上传您的角色，与社区一起探索无限可能！</p>
         <div class="hero-buttons">
-          <a class="btn btn-primary" href="/create">
-            <i class="fas fa-plus-circle"></i> 创建角色
-          </a>
-          <a class="btn btn-secondary" href="/pages">
-            <i class="fas fa-compass"></i> 浏览角色
-          </a>
+          <a class="btn btn-primary" href="/make"><i class="fas fa-plus-circle"></i> 创建角色</a>
+          <a class="btn btn-secondary" href="/pages"><i class="fas fa-compass"></i> 浏览角色</a>
         </div>
       </div>
-      <style>
-        .responsive-img {
-          width: 100%;
-          height: 300px;
-          object-fit: cover;
-        }
-      </style>
       <div class="hero-image">
-        <img src="https://github.com/user-attachments/assets/ffccbe79-87ed-4dbc-8e60-f400efbbab26" class="responsive-img"  alt="">
+        <img src="https://github.com/user-attachments/assets/ffccbe79-87ed-4dbc-8e60-f400efbbab26"
+             style="width:100%;height:300px;object-fit:cover;border-radius:12px" alt="LingChat">
       </div>
     </section>
 
+    <section class="home-stats" id="home-stats">
+      <div class="stat-card"><div class="stat-icon"><i class="fas fa-box-open"></i></div><div class="stat-number">-</div><div class="stat-label">全部角色</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-day"></i></div><div class="stat-number">-</div><div class="stat-label">今日上架</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-week"></i></div><div class="stat-number">-</div><div class="stat-label">本周上架</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-number">-</div><div class="stat-label">社区用户</div></div>
+      <div class="stat-card"><div class="stat-icon"><i class="fas fa-download"></i></div><div class="stat-number">-</div><div class="stat-label">累计下载</div></div>
+    </section>
 
+    <section class="card" style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <h2 style="margin:0"><i class="fas fa-trophy" style="color:#f59e0b"></i> 下载榜 TOP 5</h2>
+        <a class="btn-mini" href="/pages?sort=downloads">查看完整榜单 <i class="fas fa-arrow-right"></i></a>
+      </div>
+      <div class="table-wrap" style="margin-top:16px">
+        <table class="table" id="ranking-table">
+          <thead><tr><th style="width:60px">排名</th><th>角色</th><th>上传者</th><th>下载量</th></tr></thead>
+          <tbody><tr><td colspan="4" class="loading"><span class="spinner"></span>加载中…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/common.js"></script>
   <script>
-    // 显示登录状态
-    (function(){
-      const authUser = localStorage.getItem('auth_user');
-      const authInfoEl = document.getElementById('auth-info');
-      const authLink = document.getElementById('auth-link');
-      const registerLink = document.getElementById('register-link');
-      
-      if (authUser) {
-        authInfoEl.textContent = '欢迎，' + authUser;
-        authLink.textContent = '登出';
-        authLink.href = '#';
-        registerLink.style.display = 'none';
-        authLink.addEventListener('click', (e) => {
-          e.preventDefault();
-          localStorage.removeItem('auth_user');
-          window.location.reload();
-        });
-      } else {
-        authInfoEl.textContent = '游客用户';
-        authLink.textContent = '登录';
-        authLink.href = '/login';
-        registerLink.style.display = 'inline-block';
+    async function loadHome() {
+      try {
+        const summary = await LC.api('/api/v1/stats/summary');
+        const nums = document.querySelectorAll('#home-stats .stat-number');
+        nums[0].textContent = summary.total_pages;
+        nums[1].textContent = summary.today_pages;
+        nums[2].textContent = summary.week_pages;
+        nums[3].textContent = summary.total_users;
+        nums[4].textContent = summary.total_downloads;
+      } catch (e) {
+        console.error('加载首页统计失败:', e);
       }
-    })();
+      try {
+        const rankings = await LC.api('/api/v1/stats/rankings?limit=5');
+        const tbody = document.querySelector('#ranking-table tbody');
+        if (!rankings.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="empty-state">暂无数据，快去<a href="/make">创建第一个角色</a>吧！</td></tr>';
+          return;
+        }
+        const medals = ['#f59e0b', '#94a3b8', '#b45309'];
+        tbody.innerHTML = rankings.map((r, i) => {
+          const avatar = r.avatar_url
+            ? '<img class="thumb" src="' + LC.escapeAttr(r.avatar_url) + '" alt="">'
+            : '<span class="thumb-ph"><i class="fas fa-user-circle"></i></span>';
+          const medal = i < 3 ? '<i class="fas fa-medal" style="color:' + medals[i] + '"></i> ' : '';
+          return '<tr><td><strong>' + medal + (i + 1) + '</strong></td>' +
+            '<td>' + avatar + ' <a href="/page/' + encodeURIComponent(r.uid) + '">' + LC.escapeHtml(r.title) + '</a></td>' +
+            '<td>' + LC.escapeHtml(r.uploader || '匿名') + '</td>' +
+            '<td><span class="badge badge-blue"><i class="fas fa-download"></i> ' + r.download_count + '</span></td></tr>';
+        }).join('');
+      } catch (e) {
+        console.error('加载下载榜失败:', e);
+        document.querySelector('#ranking-table tbody').innerHTML = '<tr><td colspan="4" class="empty-state">榜单加载失败</td></tr>';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', loadHome);
   </script>
 </body>
 </html>

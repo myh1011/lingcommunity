@@ -1,26 +1,39 @@
+"""认证接口：注册 / 登录 / 当前用户。"""
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+
+from app.core.security import create_token, get_current_user
 from app.db.database import get_db
+from app.models.user import User
+from app.schemas.user import UserCreate, UserLogin, UserOut, LoginOut
 from app.services.user_service import UserService
-from app.schemas.user import Usercreate, UserLogin, UserOut
 
 router = APIRouter()
 
-def get_user_service(db: Session = Depends(get_db)) -> UserService:
+
+def _get_user_service(db=Depends(get_db)) -> UserService:
     return UserService(db)
 
-@router.post("/register", response_model=UserOut)
-async def register(payload: Usercreate, user_service: UserService = Depends(get_user_service)):
+
+@router.post("/register", response_model=LoginOut)
+async def register(payload: UserCreate, user_service: UserService = Depends(_get_user_service)):
     try:
-        u = user_service.create_user(payload.username, payload.password)
-        return u
+        user = user_service.create_user(payload.username, payload.password)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return LoginOut(token=create_token(user.username, user.role), user=UserOut.model_validate(user))
 
-@router.post("/login", response_model=UserOut)
-async def login(payload: UserLogin, user_service: UserService = Depends(get_user_service)):
-    u = user_service.authenticate(payload.username, payload.password)
-    if not u:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    # 简化：返回用户信息；真正项目可返回 JWT/Session
-    return u
+
+@router.post("/login", response_model=LoginOut)
+async def login(payload: UserLogin, user_service: UserService = Depends(_get_user_service)):
+    user = user_service.authenticate(payload.username, payload.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="账号已被封禁，请联系管理员")
+    return LoginOut(token=create_token(user.username, user.role), user=UserOut.model_validate(user))
+
+
+@router.get("/me", response_model=UserOut)
+async def me(current_user: User = Depends(get_current_user)):
+    """返回当前登录用户信息（用于前端校验令牌有效性）。"""
+    return UserOut.model_validate(current_user)

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+# 环境与数据库
+.env
+*.db
+*.sqlite3
+
+# 上传内容
+app/static/uploads/
+
+# 工具
+.DS_Store
+.idea/
+.vscode/

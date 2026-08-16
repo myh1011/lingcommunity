@@ -1,205 +1,256 @@
-
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <title>{{ title }}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page.title }} - LingChat communitymods</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
 </head>
 <body>
-    <header class="site-header">
-        <div class="container header-inner">
-            <h1 class="site-title">{{ title }}</h1>
-            <div>
-                <span id="auth-info"></span>
-                <a class="btn small" href="/">返回首页</a>
-                <a class="btn small" href="/pages">浏览更多</a>
-            </div>
+  <header class="site-header">
+    <div class="container header-inner">
+      <h1 class="site-title"><a href="/">LingChat communitymods</a></h1>
+      <nav class="nav-links">
+        <a href="/pages">浏览角色</a>
+        <a href="/make">创建角色</a>
+        <span id="auth-info"></span>
+        <a id="auth-link" class="btn small" href="/login">登录</a>
+        <a id="admin-link" class="btn small" href="/admin" style="display:none">管理后台</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <article class="card page-card">
+      <div class="page-card-with-avatar">
+        <div class="avatar-container">
+          <div class="avatar-image" style="width:140px;height:140px;font-size:56px">
+            {% if page.avatar_url %}
+              <img src="{{ page.avatar_url }}" alt="{{ page.title }} 头像">
+            {% else %}
+              <div class="avatar-placeholder"><i class="fas fa-user-circle"></i></div>
+            {% endif %}
+          </div>
         </div>
-    </header>
-    <main class="container">
-        <article class="card page-card">
-            <div class="page-card-with-avatar">
-                <div class="avatar-container">
-                    <div class="avatar-image">
-                        {% if avatar_url %}
-                            <img src="{{ avatar_url }}" alt="{{ title }} 头像">
-                        {% else %}
-                            <div class="avatar-placeholder">
-                                <i class="fas fa-user-circle"></i>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="page-card-content">
-                    <h2 class="page-title">{{ title }}</h2>
-                    
-                    <!-- 标签显示区域 -->
-                    <div id="tags-container" style="margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px;">
-                        <!-- 标签将通过JavaScript动态加载 -->
-                    </div>
-                    
-                    <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
-                        <div style="color:var(--muted);">
-                            <i class="fas fa-user"></i> 上传者: {{ uploader or '匿名' }}
-                        </div>
-                        <div style="color:var(--muted);">
-                            <i class="fas fa-calendar"></i> 创建时间: {{ created_at or '未知' }}
-                        </div>
-                    </div>
-                    <div id="body-markdown" class="page-body markdown-body" aria-live="polite">
-                        <!-- Markdown 将由客户端渲染 -->
-                    </div>
-                    <div class="page-footer" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;">
-                        <a class="btn btn-primary" href="{{ url }}" target="_blank" rel="noopener">
-                            <i class="fas fa-download"></i> 访问下载链接
-                        </a>
-                        <button id="copy-link" class="btn subtle">
-                            <i class="fas fa-copy"></i> 复制链接
-                        </button>
-                        {% if current_user == uploader %}
-                        <button id="delete-btn" class="btn btn-danger" data-uid="{{ uid }}">
-                            <i class="fas fa-trash"></i> 删除角色
-                        </button>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </article>
-    </main>
+        <div class="page-card-content">
+          <h2 class="page-title">{{ page.title }}</h2>
 
-    <!-- 使用 CDN 的 marked + DOMPurify 渲染并清理 HTML -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+          <div id="tags-container" style="margin:12px 0;display:flex;flex-wrap:wrap;gap:8px">
+            {% for tag in tags %}
+              <a class="tag-chip" href="/pages?tag={{ tag.name | urlencode }}"><i class="fas fa-tag"></i> {{ tag.name }}</a>
+            {% endfor %}
+          </div>
 
-    <!-- 将后端数据作为 JSON -->
-    <script id="page-data" type="application/json">{{ {
-        "body": body,
-        "uid": uid,
-        "url": url,
-        "title": title,
-        "uploader": uploader,
-        "current_user": current_user,
-        "tags": []  
-    } | tojson }}</script>
+          <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+            <div style="color:var(--muted)"><i class="fas fa-user"></i> 上传者: {{ page.uploader or '匿名' }}</div>
+            <div style="color:var(--muted)"><i class="fas fa-calendar"></i> 上架时间: {{ page.created_at }}</div>
+            <div style="color:var(--muted)"><i class="fas fa-cloud-download-alt"></i> <span id="download-count">{{ page.download_count or 0 }}</span> 次下载</div>
+          </div>
 
-    <script>
-      // 从 DOM 中读取数据
-      const pageDataScript = document.getElementById('page-data');
-      const pageData = pageDataScript ? JSON.parse(pageDataScript.textContent || '{}') : {};
-      
-      // 渲染Markdown内容
+          <div id="body-markdown" class="page-body markdown-body"></div>
+
+          <div class="page-footer" style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap">
+            <a class="btn btn-primary" id="download-btn" href="/api/v1/pages/{{ page.uid }}/download" target="_blank" rel="noopener">
+              <i class="fas fa-download"></i> 下载角色
+            </a>
+            <button id="copy-link" class="btn subtle"><i class="fas fa-copy"></i> 复制链接</button>
+            <button id="report-btn" class="btn subtle" style="color:#d97706;border-color:rgba(245,158,11,0.3)">
+              <i class="fas fa-flag"></i> 举报
+            </button>
+            <a id="edit-btn" class="btn subtle" href="/make?uid={{ page.uid }}" style="display:none">
+              <i class="fas fa-pen"></i> 编辑角色
+            </a>
+            <button id="delete-btn" class="btn btn-danger" data-uid="{{ page.uid }}" style="display:none">
+              <i class="fas fa-trash"></i> 删除角色
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 角色设定（来自角色创建器的结构化数据） -->
+    <section class="card" id="settings-card" style="margin-top:24px;display:none">
+      <h2 style="margin-top:0"><i class="fas fa-sliders-h"></i> 角色设定</h2>
+      <div id="settings-content"></div>
+    </section>
+  </main>
+
+  <!-- 举报模态框 -->
+  <div id="report-mask" class="modal-mask" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <span><i class="fas fa-flag" style="color:#d97706"></i> 举报角色</span>
+        <button class="modal-close" id="report-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>举报类型</label>
+          <select class="select" id="report-category">
+            <option value="色情内容">色情内容</option>
+            <option value="违法内容">违法内容</option>
+            <option value="侵权内容">侵权内容</option>
+            <option value="垃圾广告">垃圾广告</option>
+            <option value="辱骂攻击">辱骂攻击</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>举报理由 <span style="color:var(--danger)">*</span></label>
+          <textarea class="textarea" id="report-reason" placeholder="请描述具体问题，便于管理员核实…"></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn small" id="report-cancel" style="margin:0">取消</button>
+        <button class="btn btn-danger" id="report-submit" style="margin:0">提交举报</button>
+      </div>
+    </div>
+  </div>
+
+  <script id="page-data" type="application/json">{{ {
+    "body": page.body,
+    "uid": page.uid,
+    "url": page.url,
+    "title": page.title,
+    "uploader": page.uploader,
+    "settings": page.settings or {},
+  } | tojson }}</script>
+
+  <script src="/static/js/common.js"></script>
+  <script>
+    (function () {
+      const pageData = JSON.parse(document.getElementById('page-data').textContent || '{}');
+      const user = LC.getUser();
+      const isOwner = user && pageData.uploader && user.username === pageData.uploader;
+      const canManage = isOwner || LC.isAdmin();
+
+      // Markdown 渲染
       try {
-        const rendered = (window.marked ? marked.parse(pageData.body || '') : pageData.body);
-        const safeHtml = (window.DOMPurify ? DOMPurify.sanitize(rendered) : rendered);
+        const rendered = window.marked ? marked.parse(pageData.body || '') : pageData.body;
+        const safeHtml = window.DOMPurify ? DOMPurify.sanitize(rendered) : rendered;
         document.getElementById('body-markdown').innerHTML = safeHtml;
       } catch (e) {
-        document.getElementById('body-markdown').textContent = pageData.body;
+        document.getElementById('body-markdown').textContent = pageData.body || '';
       }
 
-      // 加载标签
-      async function loadTags() {
-        try {
-          const res = await fetch(`/api/v1/pages/${pageData.uid}`);
-          if (!res.ok) return;
-          const pageInfo = await res.json();
-          
-          if (pageInfo.tag_objects && pageInfo.tag_objects.length > 0) {
-            const container = document.getElementById('tags-container');
-            pageInfo.tag_objects.forEach(tag => {
-              const tagElement = document.createElement('a');
-              tagElement.href = `/pages?tag=${encodeURIComponent(tag.name)}`;
-              tagElement.className = 'tag-chip';
-              tagElement.style.cssText = `
-                background: var(--surface);
-                padding: 4px 12px;
-                border-radius: 16px;
-                font-size: 14px;
-                text-decoration: none;
-                color: var(--text-dark);
-                border: 1px solid var(--border);
-                transition: all 0.2s ease;
-              `;
-              tagElement.innerHTML = `
-                <i class="fas fa-tag" style="margin-right: 4px;"></i>
-                ${tag.name}
-              `;
-              tagElement.addEventListener('mouseenter', () => {
-                tagElement.style.background = tag.color || 'var(--primary)';
-                tagElement.style.color = 'white';
-              });
-              tagElement.addEventListener('mouseleave', () => {
-                tagElement.style.background = 'var(--surface)';
-                tagElement.style.color = 'var(--text-dark)';
-              });
-              container.appendChild(tagElement);
-            });
-          }
-        } catch (err) {
-          console.error('加载标签失败:', err);
-        }
+      // 所有者/管理员操作按钮
+      if (canManage) {
+        document.getElementById('delete-btn').style.display = '';
+        document.getElementById('edit-btn').style.display = '';
       }
 
-      // 复制链接按钮
-      document.getElementById('copy-link')?.addEventListener('click', () => {
-        navigator.clipboard?.writeText(pageData.url).then(() => {
-          alert('链接已复制到剪贴板');
-        }, () => alert('复制失败，请手动复制'));
+      // 下载成功后本地计数 +1（跳转由后端完成）
+      document.getElementById('download-btn').addEventListener('click', function () {
+        const el = document.getElementById('download-count');
+        el.textContent = (parseInt(el.textContent, 10) || 0) + 1;
       });
-      
-      // 删除按钮
-      document.getElementById('delete-btn')?.addEventListener('click', async () => {
-        const currentUser = localStorage.getItem('auth_user');
-        if (!currentUser) {
-          alert('请先登录');
-          window.location.href = '/login';
-          return;
-        }
 
-        if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) {
-          return;
+      // 复制链接
+      document.getElementById('copy-link').addEventListener('click', function () {
+        const url = window.location.href;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(function () {
+            LC.toast('页面链接已复制', 'success');
+          }, function () {
+            LC.toast('复制失败，请手动复制', 'warning');
+          });
+        } else {
+          LC.toast('复制失败，请手动复制', 'warning');
         }
+      });
 
+      // 删除角色
+      document.getElementById('delete-btn').addEventListener('click', async function () {
+        if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) return;
         try {
-          const res = await fetch(`/api/v1/pages/${pageData.uid}`, {
-            method: 'DELETE',
-            headers: { 
-              'Content-Type': 'application/json',
-              'X-User': currentUser
+          await LC.api('/api/v1/pages/' + encodeURIComponent(pageData.uid), { method: 'DELETE' });
+          LC.toast('删除成功', 'success');
+          setTimeout(function () { window.location.href = '/pages'; }, 600);
+        } catch (err) {
+          LC.toast('删除失败：' + err.message, 'error');
+        }
+      });
+
+      // 举报
+      const mask = document.getElementById('report-mask');
+      const openReport = function () {
+        if (!LC.requireLogin()) return;
+        mask.style.display = '';
+        document.getElementById('report-reason').value = '';
+      };
+      document.getElementById('report-btn').addEventListener('click', openReport);
+      document.getElementById('report-close').addEventListener('click', function () { mask.style.display = 'none'; });
+      document.getElementById('report-cancel').addEventListener('click', function () { mask.style.display = 'none'; });
+      mask.addEventListener('click', function (e) { if (e.target === mask) mask.style.display = 'none'; });
+      document.getElementById('report-submit').addEventListener('click', async function () {
+        const reason = document.getElementById('report-reason').value.trim();
+        if (!reason) { LC.toast('请填写举报理由', 'warning'); return; }
+        const btn = this;
+        btn.disabled = true;
+        try {
+          await LC.api('/api/v1/pages/' + encodeURIComponent(pageData.uid) + '/report', {
+            method: 'POST',
+            body: {
+              category: document.getElementById('report-category').value,
+              reason: reason
             }
           });
-
-          if (!res.ok) {
-            const err = await res.json().catch(() => null);
-            alert('删除失败: ' + (err?.detail ?? res.status));
-            return;
-          }
-
-          alert('删除成功');
-          window.location.href = '/pages';
+          LC.toast('举报已提交，感谢您的反馈', 'success');
+          mask.style.display = 'none';
         } catch (err) {
-          console.error('Error deleting page:', err);
-          alert('删除时出错');
+          LC.toast('举报失败：' + err.message, 'error');
+        } finally {
+          btn.disabled = false;
         }
       });
-      
-      // 显示登录状态
-      (function(){
-        const authUser = localStorage.getItem('auth_user');
-        const authInfoEl = document.getElementById('auth-info');
-        if (authUser) {
-          authInfoEl.textContent = '已登录：' + authUser;
-        } else {
-          authInfoEl.textContent = '';
+
+      // 渲染角色设定
+      const s = pageData.settings || {};
+      const hasSettings = Object.keys(s).length > 0;
+      if (hasSettings) {
+        document.getElementById('settings-card').style.display = '';
+        const box = document.getElementById('settings-content');
+        const items = [];
+        const kv = function (k, label, icon) {
+          if (s[k] === undefined || s[k] === null || s[k] === '') return;
+          items.push('<div class="settings-item"><div class="k">' + icon + ' ' + label + '</div><div class="v">' + LC.escapeHtml(String(s[k])) + '</div></div>');
+        };
+        kv('ai_name', '角色名', '<i class="fas fa-user"></i>');
+        kv('ai_subtitle', '称号', '<i class="fas fa-award"></i>');
+        kv('user_name', '称呼用户', '<i class="fas fa-hand-point-right"></i>');
+        kv('user_subtitle', '用户称号', '<i class="fas fa-user-tag"></i>');
+        kv('thinking_message', '思考提示语', '<i class="fas fa-comment-dots"></i>');
+        kv('tts_type', '语音引擎', '<i class="fas fa-microphone"></i>');
+        kv('voice_lang', '语音语言', '<i class="fas fa-language"></i>');
+        kv('scale', '立绘缩放', '<i class="fas fa-expand"></i>');
+        if (items.length) {
+          box.innerHTML += '<div class="settings-grid" style="margin-bottom:16px">' + items.join('') + '</div>';
         }
-      })();
-
-      // 页面加载完成后加载标签
-      document.addEventListener('DOMContentLoaded', loadTags);
-    </script>
-
-    <script src="/static/js/app.js"></script>
+        const prompts = [
+          ['system_prompt', '系统提示词', s.system_prompt],
+          ['system_prompt_example', '提示词示例', s.system_prompt_example],
+        ];
+        prompts.forEach(function (p) {
+          if (p[2]) {
+            const details = document.createElement('details');
+            details.className = 'prompt-box';
+            details.innerHTML = '<summary>' + LC.escapeHtml(p[1]) + '</summary><pre>' + LC.escapeHtml(p[2]) + '</pre>';
+            box.appendChild(details);
+          }
+        });
+        if (Array.isArray(s.clothes) && s.clothes.length) {
+          const wrap = document.createElement('div');
+          wrap.style.marginTop = '14px';
+          wrap.innerHTML = '<div class="k" style="font-size:12px;color:var(--muted);margin-bottom:8px"><i class="fas fa-tshirt"></i> 服装列表</div>' +
+            s.clothes.map(function (c) {
+              return '<span class="clothes-chip" title="' + LC.escapeAttr((c.prompt || '').slice(0, 300)) + '"><i class="fas fa-tshirt"></i> ' + LC.escapeHtml(c.name || '未命名') + '</span>';
+            }).join('');
+          box.appendChild(wrap);
+        }
+      }
+    })();
+  </script>
 </body>
 </html>

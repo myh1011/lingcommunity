@@ -2,171 +2,155 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8">
-  <title>创建角色 - LingChat communitymods</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上传角色 - LingChat communitymods</title>
   <link rel="stylesheet" href="/static/css/styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <h1 class="site-title">创建角色</h1>
-      <div>
+      <h1 class="site-title"><a href="/">LingChat communitymods</a></h1>
+      <nav class="nav-links">
+        <a href="/">首页</a>
+        <a href="/pages">浏览角色</a>
+        <a href="/make">创建角色</a>
         <span id="auth-info"></span>
-        <a class="btn small" href="/">返回</a>
         <a id="auth-link" class="btn small" href="/login">登录</a>
-      </div>
+        <a id="admin-link" class="btn small" href="/admin" style="display:none">管理后台</a>
+      </nav>
     </div>
   </header>
+
   <main class="container grid">
     <section class="card form-card">
-      <h2>创建新角色</h2>
+      <h2><i class="fas fa-upload"></i> 上传已有角色</h2>
+      <p style="color:var(--muted);margin-top:0">填写角色的基本信息与下载链接。想要完整配置角色设定（提示词/立绘/服装等），请使用
+        <a href="/make">角色创建器</a>。</p>
       <form id="create-page-form">
-        <label for="title">角色名称:</label>
-        <input type="text" id="title" name="title" required placeholder="请输入角色名称">
-        
-        <div class="avatar-upload-container">
-          <label for="avatar" class="avatar-upload-label">角色头像 (可选):</label>
-          <input type="file" id="avatar" name="avatar" accept="image/*">
-          <div class="avatar-preview" id="avatar-preview">
-            <div class="avatar-placeholder">
-              <i class="fas fa-user-circle"></i>
-            </div>
+        <div class="field">
+          <label for="title">角色名称 <span style="color:var(--danger)">*</span></label>
+          <input class="input" type="text" id="title" name="title" required placeholder="例如：小灵 - AI 助手">
+        </div>
+
+        <div class="field avatar-upload-container">
+          <label for="avatar">角色头像（可选）</label>
+          <input class="input" type="file" id="avatar" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+          <div class="avatar-preview" id="avatar-preview" style="display:none">
+            <img id="avatar-preview-img" src="" alt="头像预览">
           </div>
+          <div class="hint">支持 png/jpg/gif/webp，最大 5MB</div>
         </div>
 
-        <label for="body">角色介绍:</label>
-        <textarea id="body" name="body" required placeholder="请输入角色介绍，支持Markdown格式..."></textarea>
-
-        <label for="tags">标签 (以逗号分隔):</label>
-        <input type="text" id="tags" name="tags" placeholder="例如: AI助手, 中文, 智能对话">
-        <div style="margin-top: 4px; font-size: 14px; color: var(--muted);">
-          提示：输入多个标签请用逗号分隔，如"游戏角色, 可爱, 女性"
+        <div class="field">
+          <label for="body">角色介绍 <span style="color:var(--danger)">*</span></label>
+          <textarea class="textarea" id="body" name="body" required placeholder="支持 Markdown 格式…"></textarea>
         </div>
 
-        <label for="url">下载地址(直链):</label>
-        <input type="text" id="url" name="url" required placeholder="https://example.com/download.zip">
+        <div class="field">
+          <label for="tags">标签（逗号分隔）</label>
+          <input class="input" type="text" id="tags" name="tags" placeholder="例如: AI助手, 中文, 智能对话">
+          <div id="popular-tags" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+        </div>
 
-        <!-- uploader 由登录用户自动填充 -->
-        <input type="hidden" id="uploader" name="uploader">
-        <!-- avatar_url 存储上传的头像URL -->
-        <input type="hidden" id="avatar_url" name="avatar_url">
+        <div class="field">
+          <label for="url">下载地址（直链） <span style="color:var(--danger)">*</span></label>
+          <input class="input" type="text" id="url" name="url" required placeholder="https://example.com/download.zip">
+          <div class="hint">必须是 http/https 直链。不知道怎么获取？<a href="/download_url" target="_blank">查看帮助</a></div>
+        </div>
 
-        <button class="btn btn-primary" type="submit">创建角色</button>
+        <button class="btn btn-primary" type="submit"><i class="fas fa-check"></i> 提交上传</button>
       </form>
     </section>
 
-    <section class="list-section">
-      <h2>提示</h2>
-      <p>需要先登录才能创建角色。若没有账号，请先 <a href="/register">注册</a>。</p>
-      
-      <div class="popular-tags" style="margin-bottom: 20px;">
-        <h3>常用标签</h3>
-        <div id="popular-tags" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-          <!-- 常用标签将通过JavaScript加载 -->
-        </div>
-      </div>
-      
-      <p><strong>Markdown 支持:</strong></p>
-      <ul>
-        <li>支持大部分的 Markdown 语法</li>
-        <li>可以使用 <code>![alt text](image_url)</code> 语法插入图片</li>
-        <li>支持代码块、列表、链接等常用格式</li>
-      </ul>
-      <p><strong>关于下载链接:</strong></p>
-      <ul>
-        <li>请确保提供的下载链接是直接可访问的直链。</li>
-        <li>支持常见的文件托管服务，如 GitHub Releases、Modelscope等。</li>
-        <li>请勿使用需要额外跳转或验证码的链接。</li>
-        <li><a href="/download_url" target="_blank">查看如何获取下载链接</a></li>
-      </ul>
-    </section>
+    <aside>
+      <section class="card" style="margin-bottom:24px">
+        <h3 style="margin-top:0">常用标签</h3>
+        <div class="hint">点击标签可快速填入</div>
+      </section>
+      <section class="card">
+        <h3 style="margin-top:0">上传须知</h3>
+        <ul style="color:var(--text-muted);padding-left:18px;line-height:1.9">
+          <li>请确保下载链接可直接访问，无需验证码或跳转。</li>
+          <li>介绍支持 Markdown，可用 <code>![描述](图片链接)</code> 插入图片。</li>
+          <li>请勿上传侵权、违规内容，发现违规内容请使用举报功能。</li>
+          <li>上传后可在角色详情页继续编辑或删除。</li>
+        </ul>
+      </section>
+    </aside>
   </main>
 
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/common.js"></script>
   <script>
-    // 加载 Font Awesome
-    const faScript = document.createElement('script');
-    faScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js';
-    document.head.appendChild(faScript);
-    
-    // 加载常用标签
-    async function loadPopularTags() {
-      try {
-        const res = await fetch('/api/v1/pages/tags');
-        if (!res.ok) return;
-        const tags = await res.json();
-        
-        const container = document.getElementById('popular-tags');
-        tags.slice(0, 10).forEach(tag => {
-          const tagElement = document.createElement('span');
-          tagElement.className = 'tag-chip';
-          tagElement.style.cssText = `
-            background: var(--surface);
-            padding: 4px 12px;
-            border-radius: 16px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid var(--border);
-          `;
-          tagElement.textContent = tag.name;
-          tagElement.addEventListener('click', () => {
-            const tagsInput = document.getElementById('tags');
-            const currentTags = tagsInput.value.split(',').filter(t => t.trim());
-            if (!currentTags.includes(tag.name)) {
-              currentTags.push(tag.name);
-              tagsInput.value = currentTags.join(', ');
-            }
-          });
-          container.appendChild(tagElement);
-        });
-      } catch (err) {
-        console.error('加载标签失败:', err);
-      }
-    }
-    
-    // 简单前端控制：显示登录状态，若未登录提交时会跳转到 /login
-    (function(){
-      const authUser = localStorage.getItem('auth_user');
-      const authInfoEl = document.getElementById('auth-info');
-      const authLink = document.getElementById('auth-link');
-      if (authUser) {
-        authInfoEl.textContent = '已登录：' + authUser;
-        authLink.textContent = '登出';
-        authLink.href = '#';
-        authLink.addEventListener('click', (e) => {
-          e.preventDefault();
-          localStorage.removeItem('auth_user');
-          window.location.reload();
-        });
-        document.getElementById('uploader').value = authUser;
-      } else {
-        authInfoEl.textContent = '未登录';
-        authLink.textContent = '登录';
-        authLink.href = '/login';
-      }
-    })();
-    
-    // 头像预览功能
-    document.getElementById('avatar').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      const preview = document.getElementById('avatar-preview');
-      
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          preview.innerHTML = `<img src="${e.target.result}" alt="头像预览">`;
+    (function () {
+      const form = document.getElementById('create-page-form');
+      const tagsInput = document.getElementById('tags');
+      const avatarInput = document.getElementById('avatar');
+
+      avatarInput.addEventListener('change', function () {
+        const preview = document.getElementById('avatar-preview');
+        const img = document.getElementById('avatar-preview-img');
+        const file = avatarInput.files[0];
+        if (file) {
+          img.src = URL.createObjectURL(file);
+          preview.style.display = 'block';
+        } else {
+          preview.style.display = 'none';
         }
-        reader.readAsDataURL(file);
-      } else {
-        preview.innerHTML = '<div class="avatar-placeholder"><i class="fas fa-user-circle"></i></div>';
+      });
+
+      async function loadPopularTags() {
+        try {
+          const tags = await LC.api('/api/v1/pages/tags');
+          const container = document.getElementById('popular-tags');
+          container.innerHTML = tags.slice(0, 10).map(function (tag) {
+            return '<span class="tag-chip" data-name="' + LC.escapeAttr(tag.name) + '">' + LC.escapeHtml(tag.name) + '</span>';
+          }).join('');
+          container.querySelectorAll('.tag-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+              const current = tagsInput.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+              const name = chip.getAttribute('data-name');
+              if (!current.includes(name)) current.push(name);
+              tagsInput.value = current.join(', ');
+            });
+          });
+        } catch (err) {
+          console.error('加载常用标签失败:', err);
+        }
       }
-    });
-    
-    // 页面加载完成后加载常用标签
-    document.addEventListener('DOMContentLoaded', loadPopularTags);
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (!LC.requireLogin()) return;
+
+        const title = document.getElementById('title').value.trim();
+        const body = document.getElementById('body').value.trim();
+        const url = document.getElementById('url').value.trim();
+        if (!title || !body || !url) { LC.toast('请填写必填项', 'warning'); return; }
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('body', body);
+        formData.append('url', url);
+        formData.append('tags', tagsInput.value);
+        if (avatarInput.files[0]) formData.append('avatar', avatarInput.files[0]);
+
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true;
+        btn.textContent = '提交中…';
+        try {
+          const data = await LC.api('/api/v1/pages', { method: 'POST', body: formData });
+          LC.toast('上传成功！', 'success');
+          setTimeout(function () { window.location.href = '/page/' + encodeURIComponent(data.uid); }, 500);
+        } catch (err) {
+          LC.toast('上传失败：' + err.message, 'error');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-check"></i> 提交上传';
+        }
+      });
+
+      loadPopularTags();
+    })();
   </script>
 </body>
 </html>
