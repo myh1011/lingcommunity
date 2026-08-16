@@ -33,7 +33,9 @@ class Page(Base):
     download_count = Column(Integer, default=0, nullable=False)
     # 内容状态：published 正常 / removed 已下架（管理员处理举报）
     status = Column(String(20), default=PageStatus.PUBLISHED, nullable=False)
-    # 角色结构化设定（参照 LingChat SettingsCharacterInfo 的字段）
+    # 角色结构化设定（参照 LingChat 的字段）
     settings = Column(JSON, default=dict, nullable=True)
+    # 情绪立绘：{"兴奋": "/static/uploads/emotions/xxx.png", ...}
+    emotions = Column(JSON, default=dict, nullable=True)
 
     tags = relationship("Tag", secondary=page_tags, backref="pages")

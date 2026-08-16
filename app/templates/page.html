@@ -71,6 +71,12 @@
       </div>
     </article>
 
+    <!-- 情绪立绘画廊 -->
+    <section class="card" id="emotions-card" style="margin-top:24px;display:none">
+      <h2 style="margin-top:0"><i class="fas fa-images"></i> 情绪立绘 <span id="emotions-count" class="badge badge-blue"></span></h2>
+      <div id="emotions-gallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px"></div>
+    </section>
+
     <!-- 角色设定（来自角色创建器的结构化数据） -->
     <section class="card" id="settings-card" style="margin-top:24px;display:none">
       <h2 style="margin-top:0"><i class="fas fa-sliders-h"></i> 角色设定</h2>
@@ -116,6 +122,7 @@
     "title": page.title,
     "uploader": page.uploader,
     "settings": page.settings or {},
+    "emotions": page.emotions or {},
   } | tojson }}</script>
 
   <script src="/static/js/common.js"></script>
@@ -206,6 +213,22 @@
         }
       });
 
+      // 渲染情绪立绘画廊
+      const emotions = pageData.emotions || {};
+      const emotionNames = Object.keys(emotions).filter(function (k) { return emotions[k]; });
+      if (emotionNames.length) {
+        document.getElementById('emotions-card').style.display = '';
+        document.getElementById('emotions-count').textContent = emotionNames.length + ' 个';
+        document.getElementById('emotions-gallery').innerHTML = emotionNames.map(function (name) {
+          return '<figure style="margin:0;text-align:center">' +
+            '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)">' +
+            '<img src="' + LC.escapeAttr(emotions[name]) + '" alt="' + LC.escapeAttr(name) + '" loading="lazy" ' +
+            'style="width:100%;aspect-ratio:1;object-fit:cover;display:block"></div>' +
+            '<figcaption style="font-size:12px;margin-top:5px;color:var(--muted)">' + LC.escapeHtml(name) + '</figcaption>' +
+            '</figure>';
+        }).join('');
+      }
+
       // 渲染角色设定
       const s = pageData.settings || {};
       const hasSettings = Object.keys(s).length > 0;
@@ -219,6 +242,8 @@
         };
         kv('ai_name', '角色名', '<i class="fas fa-user"></i>');
         kv('ai_subtitle', '称号', '<i class="fas fa-award"></i>');
+        kv('resource_folder', '资源目录', '<i class="fas fa-folder"></i>');
+        kv('clothes_name', '当前服装', '<i class="fas fa-tshirt"></i>');
         kv('user_name', '称呼用户', '<i class="fas fa-hand-point-right"></i>');
         kv('user_subtitle', '用户称号', '<i class="fas fa-user-tag"></i>');
         kv('thinking_message', '思考提示语', '<i class="fas fa-comment-dots"></i>');

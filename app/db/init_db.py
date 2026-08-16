@@ -21,6 +21,7 @@ COLUMN_MIGRATIONS = [
     ("pages", "download_count", "ALTER TABLE pages ADD COLUMN download_count INT DEFAULT 0", "ALTER TABLE pages ADD COLUMN download_count INTEGER DEFAULT 0"),
     ("pages", "status", "ALTER TABLE pages ADD COLUMN status VARCHAR(20) DEFAULT 'published'", "ALTER TABLE pages ADD COLUMN status VARCHAR(20) DEFAULT 'published'"),
     ("pages", "settings", "ALTER TABLE pages ADD COLUMN settings JSON DEFAULT NULL", "ALTER TABLE pages ADD COLUMN settings TEXT DEFAULT NULL"),
+    ("pages", "emotions", "ALTER TABLE pages ADD COLUMN emotions JSON DEFAULT NULL", "ALTER TABLE pages ADD COLUMN emotions TEXT DEFAULT NULL"),
     ("users", "role", "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'", "ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'"),
     ("users", "is_active", "ALTER TABLE users ADD COLUMN is_active TINYINT(1) DEFAULT 1", "ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1"),
     ("users", "created_at", "ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "ALTER TABLE users ADD COLUMN created_at DATETIME"),

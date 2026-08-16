@@ -6,6 +6,60 @@
   <title>角色创建器 - LingChat communitymods</title>
   <link rel="stylesheet" href="/static/css/styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* 情绪立绘网格 */
+    .emotion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+    .emotion-tile {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+      background: var(--surface);
+      text-align: center;
+    }
+    .emotion-tile:hover { border-color: var(--primary); }
+    .emotion-tile.done { border-style: solid; border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.06); }
+    .emotion-tile.dragover { border-color: var(--primary); background: rgba(6,182,212,0.1); }
+    .emotion-tile .tile-img { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; background: #eef4f8; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 26px; overflow: hidden; }
+    .emotion-tile .tile-name { font-size: 12px; margin-top: 5px; color: var(--text-dark); }
+    .emotion-tile .tile-del {
+      position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%;
+      border: none; background: var(--danger); color: #fff; cursor: pointer; font-size: 12px; line-height: 1;
+      display: none; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .emotion-tile.done:hover .tile-del { display: flex; }
+    /* 向导步骤条 */
+    .wizard-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 20px; }
+    @media (max-width: 700px) { .wizard-steps { grid-template-columns: 1fr 1fr; } }
+    .wizard-step {
+      padding: 10px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--card);
+      text-align: center; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted);
+      transition: all 0.2s ease; user-select: none;
+    }
+    .wizard-step .step-no {
+      display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--surface);
+      border: 1px solid var(--border); align-items: center; justify-content: center; margin-right: 6px; font-size: 12px;
+    }
+    .wizard-step.active { color: var(--primary); border-color: var(--primary); }
+    .wizard-step.active .step-no { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .wizard-step.done { color: var(--success); }
+    .wizard-step.done .step-no { background: var(--success); color: #fff; border-color: var(--success); }
+    .emotion-banner { border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; border: 1px solid; }
+    .emotion-banner.ok { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); color: #059669; }
+    .emotion-banner.warn { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); color: #b45309; }
+    .adv-group { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+    .adv-group summary { cursor: pointer; padding: 13px 18px; font-weight: 700; color: var(--text-dark); background: var(--surface); user-select: none; list-style: none; }
+    .adv-group summary::-webkit-details-marker { display: none; }
+    .adv-group summary .fa-chevron-down { transition: transform 0.2s ease; }
+    .adv-group[open] summary .fa-chevron-down { transform: rotate(180deg); }
+    .adv-group .adv-body { padding: 16px 18px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+    .step-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .step-error { color: var(--danger); font-size: 14px; min-height: 20px; flex: 1; }
+  </style>
 </head>
 <body>
   <header class="site-header">
@@ -22,157 +76,172 @@
   </header>
 
   <main class="container">
-    <div class="side-layout">
-      <aside class="side-nav" id="tab-nav">
-        <button data-tab="basic" class="active"><i class="fas fa-id-card"></i> 基本信息</button>
-        <button data-tab="prompts"><i class="fas fa-comment"></i> 系统提示词</button>
-        <button data-tab="visuals"><i class="fas fa-image"></i> 立绘设置</button>
-        <button data-tab="clothes"><i class="fas fa-tshirt"></i> 服装列表</button>
-        <button data-tab="voice"><i class="fas fa-microphone"></i> 语音设置</button>
-        <button data-tab="publish"><i class="fas fa-rocket"></i> 发布</button>
-      </aside>
+    <section class="card" style="max-width:980px;margin:0 auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <h2 id="form-title" style="margin:0"><i class="fas fa-magic"></i> 创建新角色</h2>
+        <div id="form-hint" class="hint" style="display:none"></div>
+      </div>
 
-      <section class="card" style="margin-bottom:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
-          <h2 id="form-title" style="margin:0"><i class="fas fa-magic"></i> 创建新角色</h2>
-          <div style="display:flex;gap:10px">
-            <button class="btn small" id="cancel-btn" style="margin:0">取消</button>
-            <button class="btn btn-primary" id="save-btn" style="margin:0"><i class="fas fa-save"></i> 保存角色</button>
-          </div>
-        </div>
-        <div id="form-hint" class="hint" style="margin-bottom:14px;display:none"></div>
+      <!-- 向导步骤条 -->
+      <div class="wizard-steps" id="wizard-steps">
+        <div class="wizard-step active" data-step="1"><span class="step-no">1</span>基础信息</div>
+        <div class="wizard-step" data-step="2"><span class="step-no">2</span>立绘上传</div>
+        <div class="wizard-step" data-step="3"><span class="step-no">3</span>高级设置</div>
+        <div class="wizard-step" data-step="4"><span class="step-no">4</span>发布</div>
+      </div>
 
-        <!-- 各标签面板 -->
-        <div class="tab-panel" id="panel-basic">
-          <div id="fields-basic"></div>
-        </div>
-        <div class="tab-panel" id="panel-prompts" style="display:none">
-          <div id="fields-prompts"></div>
-        </div>
-        <div class="tab-panel" id="panel-visuals" style="display:none">
-          <div id="fields-visuals"></div>
-        </div>
-        <div class="tab-panel" id="panel-clothes" style="display:none">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <h3 style="margin:0">服装列表</h3>
-            <button class="btn-mini" id="add-clothes"><i class="fas fa-plus"></i> 添加服装</button>
-          </div>
-          <div id="clothes-list"></div>
-          <div id="clothes-empty" class="empty-state" style="display:none"><i class="fas fa-tshirt"></i>暂无服装，点击“添加服装”开始</div>
-        </div>
-        <div class="tab-panel" id="panel-voice" style="display:none">
-          <div id="fields-voice"></div>
-        </div>
-        <div class="tab-panel" id="panel-publish" style="display:none">
+      <!-- 第 1 步：基础信息 -->
+      <div class="step-panel" id="panel-1">
+        <div class="two-col">
           <div class="field">
-            <label>角色头像（可选）</label>
-            <input class="input" type="file" id="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
-            <div class="avatar-preview" id="avatar-preview" style="display:none"><img id="avatar-preview-img" src="" alt="头像预览"></div>
-            <div id="avatar-clear" class="hint" style="display:none"><a href="#" id="avatar-clear-link">移除已上传头像</a></div>
+            <label>角色目录名 (resource_folder) <span style="color:var(--danger)">*</span></label>
+            <input class="input" id="f-resource-folder" placeholder="例如: my_new_character（仅限字母数字下划线等安全字符）">
+            <div class="hint">LingChat 资源目录名，不能包含 \ / : * ? " &lt; &gt; | 等字符</div>
           </div>
           <div class="field">
-            <label>标签（逗号分隔）</label>
-            <input class="input" type="text" id="tags" placeholder="例如: AI助手, 中文, 智能对话">
-            <div id="popular-tags" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+            <label>显示标题 (title) <span style="color:var(--danger)">*</span></label>
+            <input class="input" id="f-title" placeholder="显示在角色列表中的标题">
           </div>
           <div class="field">
-            <label>下载地址（直链） <span style="color:var(--danger)">*</span></label>
-            <input class="input" type="text" id="url" placeholder="https://example.com/download.zip">
-            <div class="hint">必须是 http/https 直链。不知道怎么获取？<a href="/download_url" target="_blank">查看帮助</a></div>
+            <label>角色名 (ai_name) <span style="color:var(--danger)">*</span></label>
+            <input class="input" id="f-ai-name" placeholder="角色对话名称">
           </div>
           <div class="field">
-            <label>角色介绍 <span style="color:var(--danger)">*</span></label>
-            <textarea class="textarea" id="info" rows="6" placeholder="角色的公开介绍，支持 Markdown。留空则自动使用基本信息中的“角色介绍”字段。"></textarea>
-            <div class="hint">此处与“基本信息 → 角色介绍”同步，也可以单独覆盖。</div>
+            <label>称号 (ai_subtitle)</label>
+            <input class="input" id="f-ai-subtitle" placeholder="例如: 守夜人 / 学园偶像">
+          </div>
+          <div class="field">
+            <label>对用户的称呼 (user_name)</label>
+            <input class="input" id="f-user-name" placeholder="默认: 用户">
+          </div>
+          <div class="field">
+            <label>用户称号 (user_subtitle)</label>
+            <input class="input" id="f-user-subtitle">
           </div>
         </div>
-      </section>
-    </div>
+        <div class="field">
+          <label>角色简介 (info)</label>
+          <textarea class="textarea" id="f-info" rows="4" placeholder="可选：用于角色介绍展示，支持 Markdown"></textarea>
+        </div>
+      </div>
+
+      <!-- 第 2 步：立绘上传 -->
+      <div class="step-panel" id="panel-2" style="display:none">
+        <div class="emotion-banner warn" id="emotion-banner">已上传 0/20 情绪立绘，头像未上传</div>
+        <div class="emotion-grid" id="emotion-grid">
+          <!-- 头像槽位 + 20 个情绪槽位由 JS 渲染 -->
+        </div>
+        <div class="hint" style="margin-top:12px">
+          <i class="fas fa-info-circle"></i> 支持点击或拖拽图片上传（png/jpg/gif/webp，单张 ≤ 5MB）。
+          完整角色建议上传全部 20 个情绪立绘；至少上传 1 个情绪立绘即可继续。
+        </div>
+      </div>
+
+      <!-- 第 3 步：高级设置 -->
+      <div class="step-panel" id="panel-3" style="display:none">
+        <details class="adv-group">
+          <summary><i class="fas fa-image"></i> 立绘参数 <i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>
+          <div class="adv-body two-col" id="adv-visuals"></div>
+        </details>
+        <details class="adv-group">
+          <summary><i class="fas fa-comment"></i> 系统提示词 <i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>
+          <div class="adv-body" id="adv-prompts"></div>
+        </details>
+        <details class="adv-group">
+          <summary><i class="fas fa-tshirt"></i> 服装列表 <i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>
+          <div class="adv-body">
+            <div class="field">
+              <label>当前服装名 (clothes_name)</label>
+              <input class="input" id="f-clothes-name" placeholder="当前穿着的服装名称（可选）">
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <label style="font-weight:700;margin:0">服装列表</label>
+              <button class="btn-mini" id="add-clothes"><i class="fas fa-plus"></i> 添加服装</button>
+            </div>
+            <div id="clothes-list"></div>
+            <div id="clothes-empty" class="empty-state" style="display:none;padding:20px"><i class="fas fa-tshirt"></i>暂无服装，点击"添加服装"开始</div>
+          </div>
+        </details>
+        <details class="adv-group">
+          <summary><i class="fas fa-microphone"></i> 语音设置 <i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>
+          <div class="adv-body" id="adv-voice"></div>
+        </details>
+      </div>
+
+      <!-- 第 4 步：发布 -->
+      <div class="step-panel" id="panel-4" style="display:none">
+        <div class="field">
+          <label>标签（逗号分隔）</label>
+          <input class="input" type="text" id="f-tags" placeholder="例如: AI助手, 中文, 智能对话">
+          <div id="popular-tags" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+        </div>
+        <div class="field">
+          <label>下载地址（直链） <span style="color:var(--danger)">*</span></label>
+          <input class="input" type="text" id="f-url" placeholder="https://example.com/download.zip">
+          <div class="hint">必须是 http/https 直链。不知道怎么获取？<a href="/download_url" target="_blank">查看帮助</a></div>
+        </div>
+        <div class="field">
+          <label>公开介绍 <span style="color:var(--danger)">*</span></label>
+          <textarea class="textarea" id="f-body" rows="6" placeholder="展示在详情页的角色介绍，支持 Markdown。留空则使用基本信息中的简介。"></textarea>
+        </div>
+        <div class="field">
+          <label>发布预览</label>
+          <div id="publish-summary" class="hint" style="padding:12px;background:var(--surface);border-radius:10px;border:1px solid var(--border)"></div>
+        </div>
+      </div>
+
+      <!-- 底部操作 -->
+      <div class="step-footer">
+        <div class="step-error" id="step-error"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn small" id="cancel-btn" style="margin:0">取消</button>
+          <button class="btn btn-secondary" id="prev-btn" style="display:none;margin:0"><i class="fas fa-arrow-left"></i> 上一步</button>
+          <button class="btn btn-primary" id="next-btn" style="margin:0">下一步 <i class="fas fa-arrow-right"></i></button>
+          <button class="btn btn-primary" id="save-btn" style="display:none;margin:0"><i class="fas fa-save"></i> 保存角色</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script src="/static/js/common.js"></script>
   <script>
     (function () {
-      // ==================== 字段 Schema（参照 LingChat SettingsCharacterInfo 结构） ====================
-      const DEFAULTS = {
-        ai_name: '', ai_subtitle: '', user_name: '', user_subtitle: '',
+      // ==================== 常量（与 LingChat 0.4.1 一致） ====================
+      var EMOTION_SLOTS = ['兴奋','厌恶','哭泣','害怕','害羞','平静','心动','惊讶','慌张','担心','无奈','生气','疑惑','紧张','自信','认真','调皮','难为情','高兴','正常'];
+      var TTS_TYPES = ['', 'sva', 'sbv2', 'bv2', 'sbv2api', 'gsv', 'aivis', 'opentts', 'fishs2', 'indextts2', 'localsbv2api'];
+      var TTS_LABELS = { '': '不设置', sva: 'sva', sbv2: 'sbv2', bv2: 'bv2', sbv2api: 'sbv2api', gsv: 'gsv', aivis: 'aivis', opentts: 'opentts', fishs2: 'fishs2', indextts2: 'indextts2', localsbv2api: 'localsbv2api' };
+      var VOICE_LANGS = ['ja', 'zh', 'en', 'ko'];
+
+      // 默认值（与 LingChat 0.4.1 一致）
+      var DEFAULTS = {
+        resource_folder: '', ai_name: '', ai_subtitle: '', user_name: '用户', user_subtitle: '',
         title: '', info: '',
+        scale: 1, offset_x: 0, offset_y: 0, bubble_top: 5, bubble_left: 20,
+        thinking_message: '正在思考中...',
+        scale_p: 1, offset_x_p: 0, offset_y_p: 0,
+        clothes_name: '', clothes: [],
+        tts_type: '', voice_lang: 'zh', voice_models: {},
         system_prompt: '', system_prompt_example: '', system_prompt_example_old: '',
-        scale: 1.0, offset_x: 0, offset_y: 0, bubble_top: 0, bubble_left: 0,
-        thinking_message: '',
-        scale_p: 1.0, offset_x_p: 0, offset_y_p: 0,
-        clothes: [],
-        tts_type: 'sva', voice_lang: 'zh',
-        voice_models: {
-          sva_speaker_id: '', sbv2_name: '', sbv2_speaker_id: '', bv2_speaker_id: '',
-          sbv2api_name: '', sbv2api_speaker_id: '',
-          gsv_voice_text: '', gsv_voice_filename: '', gsv_gpt_model_name: '', gsv_sovits_model_name: '',
-          opentts_voice: '', aivis_model_uuid: '', fish_s2_voice: '',
-          sbv2_local_voice_id: '', sbv2_local_speaker_id: '', sbv2_local_style_id: '',
-        },
-      };
-
-      const TTS_TYPES = ['sva', 'sbv2', 'bv2', 'sbv2api', 'gsv', 'aivis', 'opentts', 'fishs2', 'indextts2', 'localsbv2api'];
-      const VOICE_LANGS = ['ja', 'zh', 'en', 'ko'];
-
-      const SCHEMAS = {
-        basic: [
-          { key: 'ai_name', label: '角色名 (ai_name)', type: 'text', placeholder: '角色的名字' },
-          { key: 'ai_subtitle', label: '称号 (ai_subtitle)', type: 'text', placeholder: '例如：温柔的邻家少女' },
-          { key: 'user_name', label: '对用户的称呼 (user_name)', type: 'text', placeholder: '例如：主人' },
-          { key: 'user_subtitle', label: '用户称号 (user_subtitle)', type: 'text', placeholder: '例如：旅行者' },
-          { key: 'title', label: '显示标题 (title)', type: 'text', placeholder: '列表页展示的标题，建议填写' },
-          { key: 'info', label: '角色介绍 (info)', type: 'textarea', rows: 5, placeholder: '角色的公开介绍，支持 Markdown' },
-        ],
-        prompts: [
-          { key: 'system_prompt', label: '系统提示词 (system_prompt)', type: 'textarea', rows: 10, placeholder: '角色的核心人设与行为规则…' },
-          { key: 'system_prompt_example', label: '提示词示例 (system_prompt_example)', type: 'textarea', rows: 6, placeholder: '对话示例…' },
-          { key: 'system_prompt_example_old', label: '旧版提示词示例 (system_prompt_example_old)', type: 'textarea', rows: 4, placeholder: '可选，旧版本兼容字段' },
-        ],
-        visuals: [
-          { key: 'scale', label: '立绘缩放 (scale)', type: 'number', step: '0.01' },
-          { key: 'offset_x', label: '水平偏移 (offset_x)', type: 'number', step: '0.1' },
-          { key: 'offset_y', label: '垂直偏移 (offset_y)', type: 'number', step: '0.1' },
-          { key: 'bubble_top', label: '气泡上边距 (bubble_top)', type: 'number' },
-          { key: 'bubble_left', label: '气泡左边距 (bubble_left)', type: 'number' },
-          { key: 'thinking_message', label: '思考提示语 (thinking_message)', type: 'text', placeholder: '角色思考时显示的文字' },
-          { key: 'scale_p', label: '宠物缩放 (scale_p)', type: 'number', step: '0.01' },
-          { key: 'offset_x_p', label: '宠物水平偏移 (offset_x_p)', type: 'number', step: '0.1' },
-          { key: 'offset_y_p', label: '宠物垂直偏移 (offset_y_p)', type: 'number', step: '0.1' },
-        ],
-        voice: [
-          { key: 'tts_type', label: '语音引擎 (tts_type)', type: 'select', options: TTS_TYPES },
-          { key: 'voice_lang', label: '语音语言 (voice_lang)', type: 'select', options: VOICE_LANGS },
-          { key: 'sva_speaker_id', label: 'sva_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sva'; } },
-          { key: 'sbv2_name', label: 'sbv2_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2'; } },
-          { key: 'sbv2_speaker_id', label: 'sbv2_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2'; } },
-          { key: 'bv2_speaker_id', label: 'bv2_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'bv2'; } },
-          { key: 'sbv2api_name', label: 'sbv2api_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2api'; } },
-          { key: 'sbv2api_speaker_id', label: 'sbv2api_speaker_id', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'sbv2api'; } },
-          { key: 'gsv_voice_text', label: 'gsv_voice_text', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
-          { key: 'gsv_voice_filename', label: 'gsv_voice_filename', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
-          { key: 'gsv_gpt_model_name', label: 'gsv_gpt_model_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
-          { key: 'gsv_sovits_model_name', label: 'gsv_sovits_model_name', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'gsv'; } },
-          { key: 'aivis_model_uuid', label: 'aivis_model_uuid', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'aivis'; } },
-          { key: 'opentts_voice', label: 'opentts_voice', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'opentts'; } },
-          { key: 'fish_s2_voice', label: 'fish_s2_voice', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'fishs2'; } },
-          { key: 'sbv2_local_voice_id', label: '本地语音ID', type: 'text', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'localsbv2api'; } },
-          { key: 'sbv2_local_speaker_id', label: '说话人ID', type: 'number', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'localsbv2api'; } },
-          { key: 'sbv2_local_style_id', label: '风格ID', type: 'number', parent: 'voice_models', visibleIf: function (s) { return s.tts_type === 'localsbv2api'; } },
-        ],
       };
 
       // ==================== 状态 ====================
-      const urlParams = new URLSearchParams(window.location.search);
-      const editUid = urlParams.get('uid');
-      const settings = JSON.parse(JSON.stringify(DEFAULTS));
-      let clothes = [];
-      let existingPage = null;
-      let activeTab = 'basic';
+      var urlParams = new URLSearchParams(window.location.search);
+      var editUid = urlParams.get('uid');
+      var settings = JSON.parse(JSON.stringify(DEFAULTS));
+      var clothes = [];
+      var existingPage = null;
+      var currentStep = 1;
+      var avatarFile = null;
+      var avatarPreviewUrl = '';
+      var avatarRemoved = false;
+      // 情绪立绘状态：name -> { file, preview, url(已有), removed }
+      var emotionState = {};
+      var removedEmotions = [];
+      EMOTION_SLOTS.forEach(function (name) { emotionState[name] = { file: null, preview: '', url: '', removed: false }; });
 
       function deepMerge(target, source) {
         Object.keys(source || {}).forEach(function (k) {
-          const v = source[k];
+          var v = source[k];
           if (v && typeof v === 'object' && !Array.isArray(v)) {
             if (!target[k] || typeof target[k] !== 'object' || Array.isArray(target[k])) target[k] = {};
             deepMerge(target[k], v);
@@ -183,89 +252,305 @@
         return target;
       }
 
-      function getFieldValue(field) {
-        const target = field.parent ? (settings[field.parent] || (settings[field.parent] = {})) : settings;
-        return target[field.key];
+      // ==================== 向导步骤 ====================
+      function isBasicComplete() {
+        return !!(document.getElementById('f-resource-folder').value.trim() &&
+                  document.getElementById('f-title').value.trim() &&
+                  document.getElementById('f-ai-name').value.trim());
       }
-      function setFieldValue(field, value) {
-        const target = field.parent ? (settings[field.parent] || (settings[field.parent] = {})) : settings;
-        target[field.key] = value;
-      }
-
-      // ==================== 渲染字段 ====================
-      function renderFields(tab, containerId) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        SCHEMAS[tab].forEach(function (field) {
-          const wrap = document.createElement('div');
-          wrap.className = 'field';
-          wrap.dataset.field = field.key;
-          const label = document.createElement('label');
-          label.textContent = field.label;
-          wrap.appendChild(label);
-          let input;
-          if (field.type === 'textarea') {
-            input = document.createElement('textarea');
-            input.className = 'textarea';
-            input.rows = field.rows || 4;
-            input.placeholder = field.placeholder || '';
-            input.value = getFieldValue(field) || '';
-            input.addEventListener('input', function () { setFieldValue(field, input.value); });
-          } else if (field.type === 'select') {
-            input = document.createElement('select');
-            input.className = 'select';
-            field.options.forEach(function (opt) {
-              const o = document.createElement('option');
-              o.value = opt;
-              o.textContent = opt;
-              input.appendChild(o);
-            });
-            input.value = getFieldValue(field) != null ? String(getFieldValue(field)) : '';
-            input.addEventListener('change', function () {
-              setFieldValue(field, input.value);
-              refreshVisibility();
-            });
-          } else {
-            input = document.createElement('input');
-            input.className = 'input';
-            input.type = field.type === 'number' ? 'number' : 'text';
-            if (field.step) input.step = field.step;
-            input.placeholder = field.placeholder || '';
-            const val = getFieldValue(field);
-            input.value = val != null && val !== '' ? val : '';
-            input.addEventListener('input', function () {
-              setFieldValue(field, field.type === 'number' ? parseFloat(input.value || '0') : input.value);
-            });
-          }
-          wrap.appendChild(input);
-          container.appendChild(wrap);
+      function uploadedEmotionCount() {
+        var n = 0;
+        EMOTION_SLOTS.forEach(function (name) {
+          var s = emotionState[name];
+          if ((s.file || s.url) && !s.removed) n++;
         });
-        refreshVisibility();
+        return n;
+      }
+      function isAvatarComplete() { return !!avatarFile || (!!existingPage && !!existingPage.avatar_url && !avatarRemoved); }
+      function refreshBanner() {
+        var banner = document.getElementById('emotion-banner');
+        var n = uploadedEmotionCount();
+        var avatar = isAvatarComplete();
+        var allEmotions = n === EMOTION_SLOTS.length;
+        banner.textContent = '已上传 ' + n + '/' + EMOTION_SLOTS.length + ' 情绪立绘，头像' + (avatar ? '已上传' : '未上传');
+        banner.className = 'emotion-banner ' + (allEmotions && avatar ? 'ok' : 'warn');
+      }
+      function setStep(step) {
+        currentStep = step;
+        for (var i = 1; i <= 4; i++) {
+          document.getElementById('panel-' + i).style.display = i === step ? '' : 'none';
+        }
+        document.getElementById('prev-btn').style.display = step > 1 ? '' : 'none';
+        document.getElementById('next-btn').style.display = step < 4 ? '' : 'none';
+        document.getElementById('save-btn').style.display = step === 4 ? '' : 'none';
+        document.querySelectorAll('.wizard-step').forEach(function (el) {
+          var s = parseInt(el.dataset.step, 10);
+          el.className = 'wizard-step' + (s === step ? ' active' : '');
+        });
+        document.getElementById('step-error').textContent = '';
+        if (step === 4) renderPublishSummary();
+      }
+      function gotoStep(step) {
+        // 允许自由回退，前进需满足当前步校验
+        if (step < currentStep) { setStep(step); return; }
+        if (step === 2 && !validateStep(1)) return;
+        if (step === 3 && (!validateStep(1) || !validateStep(2))) return;
+        if (step === 4 && (!validateStep(1) || !validateStep(2))) return;
+        setStep(step);
+      }
+      function validateStep(step) {
+        var errEl = document.getElementById('step-error');
+        errEl.textContent = '';
+        if (step === 1) {
+          if (!isBasicComplete()) { errEl.textContent = '请先填写角色目录名、显示标题和角色名'; return false; }
+          return true;
+        }
+        if (step === 2) {
+          if (!isAvatarComplete()) { errEl.textContent = '请上传头像'; return false; }
+          if (uploadedEmotionCount() < 1) { errEl.textContent = '请至少上传 1 个情绪立绘（完整角色建议上传全部 20 个）'; return false; }
+          return true;
+        }
+        return true;
       }
 
-      function refreshVisibility() {
-        // 语音字段的显隐（与 LingChat 的 visibleIf 一致）
-        const voiceFields = document.querySelectorAll('#fields-voice [data-field]');
-        voiceFields.forEach(function (wrap) {
-          const key = wrap.dataset.field;
-          const field = SCHEMAS.voice.find(function (f) { return f.key === key; });
-          if (field && field.visibleIf) {
-            wrap.style.display = field.visibleIf(settings) ? '' : 'none';
+      // ==================== 立绘网格渲染 ====================
+      function renderEmotionGrid() {
+        var grid = document.getElementById('emotion-grid');
+        grid.innerHTML = '';
+
+        // 头像槽位
+        var avatarTile = makeTile('avatar', '头像', avatarFile || (existingPage && existingPage.avatar_url && !avatarRemoved) ? (avatarPreviewUrl || (existingPage ? existingPage.avatar_url : '')) : '', true);
+        grid.appendChild(avatarTile);
+
+        EMOTION_SLOTS.forEach(function (name) {
+          var s = emotionState[name];
+          var done = (s.file || s.url) && !s.removed;
+          var preview = s.preview || s.url;
+          grid.appendChild(makeTile(name, name, done ? preview : '', false));
+        });
+        refreshBanner();
+      }
+
+      function makeTile(name, label, previewUrl, isAvatar) {
+        var tile = document.createElement('div');
+        var done = !!previewUrl;
+        tile.className = 'emotion-tile' + (done ? ' done' : '');
+        tile.dataset.slot = name;
+
+        var imgBox = document.createElement('div');
+        imgBox.className = 'tile-img';
+        if (previewUrl) {
+          var img = document.createElement('img');
+          img.src = previewUrl;
+          img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover';
+          imgBox.appendChild(img);
+        } else {
+          imgBox.innerHTML = '<i class="fas fa-image"></i>';
+        }
+        var nameEl = document.createElement('div');
+        nameEl.className = 'tile-name';
+        nameEl.textContent = label;
+        tile.appendChild(imgBox);
+        tile.appendChild(nameEl);
+
+        // 删除按钮
+        var del = document.createElement('button');
+        del.className = 'tile-del';
+        del.innerHTML = '&times;';
+        del.type = 'button';
+        del.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (isAvatar) {
+            avatarFile = null;
+            if (avatarPreviewUrl) { URL.revokeObjectURL(avatarPreviewUrl); avatarPreviewUrl = ''; }
+            if (existingPage && existingPage.avatar_url) avatarRemoved = true;
+          } else {
+            var s = emotionState[name];
+            if (s.preview) { URL.revokeObjectURL(s.preview); s.preview = ''; }
+            s.file = null;
+            if (s.url && removedEmotions.indexOf(name) === -1) removedEmotions.push(name);
+            s.removed = true;
           }
+          renderEmotionGrid();
+        });
+        tile.appendChild(del);
+
+        // 点击选择文件
+        tile.addEventListener('click', function () {
+          var input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/png,image/jpeg,image/gif,image/webp';
+          input.onchange = function () {
+            var file = input.files && input.files[0];
+            if (file) applyFile(name, file, isAvatar);
+          };
+          input.click();
+        });
+
+        // 拖拽上传
+        tile.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          tile.classList.add('dragover');
+        });
+        tile.addEventListener('dragleave', function () {
+          tile.classList.remove('dragover');
+        });
+        tile.addEventListener('drop', function (e) {
+          e.preventDefault();
+          tile.classList.remove('dragover');
+          var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (file && file.type.indexOf('image/') === 0) applyFile(name, file, isAvatar);
+        });
+        return tile;
+      }
+
+      function applyFile(name, file, isAvatar) {
+        var url = URL.createObjectURL(file);
+        if (isAvatar) {
+          if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+          avatarFile = file;
+          avatarPreviewUrl = url;
+          avatarRemoved = false;
+        } else {
+          var s = emotionState[name];
+          if (s.preview) URL.revokeObjectURL(s.preview);
+          s.file = file;
+          s.preview = url;
+          s.removed = false;
+          var idx = removedEmotions.indexOf(name);
+          if (idx >= 0) removedEmotions.splice(idx, 1);
+        }
+        renderEmotionGrid();
+      }
+
+      // ==================== 高级设置字段渲染 ====================
+      function renderField(container, field) {
+        var wrap = document.createElement('div');
+        wrap.className = 'field';
+        wrap.dataset.field = field.key;
+        var label = document.createElement('label');
+        label.textContent = field.label + ' (' + field.key + ')';
+        wrap.appendChild(label);
+        var getVal = function () {
+          var target = field.parent ? (settings[field.parent] || (settings[field.parent] = {})) : settings;
+          return target[field.key];
+        };
+        var setVal = function (v) {
+          var target = field.parent ? (settings[field.parent] || (settings[field.parent] = {})) : settings;
+          target[field.key] = v;
+        };
+        var input;
+        if (field.type === 'textarea') {
+          input = document.createElement('textarea');
+          input.className = 'textarea';
+          input.rows = field.rows || 4;
+          input.placeholder = field.placeholder || '';
+          input.value = getVal() || '';
+          input.addEventListener('input', function () { setVal(input.value); });
+        } else if (field.type === 'select') {
+          input = document.createElement('select');
+          input.className = 'select';
+          field.options.forEach(function (opt) {
+            var o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.label;
+            input.appendChild(o);
+          });
+          input.value = getVal() != null ? String(getVal()) : '';
+          input.addEventListener('change', function () { setVal(input.value); refreshVoiceVisibility(); });
+        } else {
+          input = document.createElement('input');
+          input.className = 'input';
+          input.type = field.type === 'number' ? 'number' : 'text';
+          if (field.step) input.step = field.step;
+          input.placeholder = field.placeholder || '';
+          var val = getVal();
+          input.value = val != null && val !== '' ? val : '';
+          input.addEventListener('input', function () {
+            setVal(field.type === 'number' ? parseFloat(input.value || '0') : input.value);
+          });
+        }
+        wrap.appendChild(input);
+        container.appendChild(wrap);
+        return wrap;
+      }
+
+      function renderVisuals() {
+        var box = document.getElementById('adv-visuals');
+        box.innerHTML = '';
+        [
+          { key: 'scale', label: '立绘缩放', type: 'number', step: '0.01' },
+          { key: 'offset_x', label: '水平偏移', type: 'number', step: '0.1' },
+          { key: 'offset_y', label: '垂直偏移', type: 'number', step: '0.1' },
+          { key: 'bubble_top', label: '气泡上边距', type: 'number' },
+          { key: 'bubble_left', label: '气泡左边距', type: 'number' },
+          { key: 'thinking_message', label: '思考提示语', type: 'text', placeholder: '角色思考时显示的文字' },
+          { key: 'scale_p', label: '宠物缩放', type: 'number', step: '0.01' },
+          { key: 'offset_x_p', label: '宠物水平偏移', type: 'number', step: '0.1' },
+          { key: 'offset_y_p', label: '宠物垂直偏移', type: 'number', step: '0.1' },
+        ].forEach(function (f) { renderField(box, f); });
+      }
+      function renderPrompts() {
+        var box = document.getElementById('adv-prompts');
+        box.innerHTML = '';
+        [
+          { key: 'system_prompt', label: '系统提示词', type: 'textarea', rows: 8, placeholder: '角色的核心人设与行为规则…' },
+          { key: 'system_prompt_example', label: '对话示例', type: 'textarea', rows: 5, placeholder: '对话示例…' },
+          { key: 'system_prompt_example_old', label: '旧版兼容示例', type: 'textarea', rows: 4, placeholder: '可选，旧版本兼容字段' },
+        ].forEach(function (f) { renderField(box, f); });
+      }
+      function renderVoice() {
+        var box = document.getElementById('adv-voice');
+        box.innerHTML = '';
+        renderField(box, {
+          key: 'tts_type', label: '语音引擎', type: 'select',
+          options: TTS_TYPES.map(function (t) { return { value: t, label: TTS_LABELS[t] || t }; }),
+        });
+        renderField(box, {
+          key: 'voice_lang', label: '语音语言', type: 'select',
+          options: VOICE_LANGS.map(function (l) { return { value: l, label: l }; }),
+        });
+        var voiceFields = [
+          { key: 'sva_speaker_id', label: 'sva_speaker_id', tts: 'sva' },
+          { key: 'sbv2_name', label: 'sbv2_name', tts: 'sbv2' },
+          { key: 'sbv2_speaker_id', label: 'sbv2_speaker_id', tts: 'sbv2' },
+          { key: 'bv2_speaker_id', label: 'bv2_speaker_id', tts: 'bv2' },
+          { key: 'sbv2api_name', label: 'sbv2api_name', tts: 'sbv2api' },
+          { key: 'sbv2api_speaker_id', label: 'sbv2api_speaker_id', tts: 'sbv2api' },
+          { key: 'gsv_voice_text', label: 'gsv_voice_text', tts: 'gsv' },
+          { key: 'gsv_voice_filename', label: 'gsv_voice_filename', tts: 'gsv' },
+          { key: 'gsv_gpt_model_name', label: 'gsv_gpt_model_name', tts: 'gsv' },
+          { key: 'gsv_sovits_model_name', label: 'gsv_sovits_model_name', tts: 'gsv' },
+          { key: 'aivis_model_uuid', label: 'aivis_model_uuid', tts: 'aivis' },
+          { key: 'opentts_voice', label: 'opentts_voice', tts: 'opentts' },
+          { key: 'fish_s2_voice', label: 'fish_s2_voice', tts: 'fishs2' },
+          { key: 'sbv2_local_voice_id', label: '本地语音ID', tts: 'localsbv2api' },
+          { key: 'sbv2_local_speaker_id', label: '说话人ID', tts: 'localsbv2api', type: 'number' },
+          { key: 'sbv2_local_style_id', label: '风格ID', tts: 'localsbv2api', type: 'number' },
+        ];
+        voiceFields.forEach(function (f) {
+          var wrap = renderField(box, { key: f.key, label: f.label, type: f.type || 'text', parent: 'voice_models' });
+          wrap.dataset.tts = f.tts;
+        });
+        refreshVoiceVisibility();
+      }
+      function refreshVoiceVisibility() {
+        document.querySelectorAll('#adv-voice [data-tts]').forEach(function (wrap) {
+          wrap.style.display = settings.tts_type === wrap.dataset.tts ? '' : 'none';
         });
       }
 
       // ==================== 服装 ====================
       function renderClothes() {
-        const list = document.getElementById('clothes-list');
+        var list = document.getElementById('clothes-list');
         list.innerHTML = '';
         clothes.forEach(function (item, idx) {
-          const box = document.createElement('div');
+          var box = document.createElement('div');
           box.style.cssText = 'padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px';
           box.innerHTML =
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
             '<strong style="font-size:14px">服装 #' + (idx + 1) + '</strong>' +
-            '<button class="btn-mini danger" data-remove="' + idx + '"><i class="fas fa-times"></i> 删除</button></div>' +
+            '<button class="btn-mini danger" data-remove="' + idx + '" type="button"><i class="fas fa-times"></i> 删除</button></div>' +
             '<div class="field"><label>名称 (name)</label>' +
             '<input class="input clothes-name" type="text" value="' + LC.escapeAttr(item.name || '') + '" placeholder="例如：夏日连衣裙"></div>' +
             '<div class="field"><label>提示词 (prompt)</label>' +
@@ -281,22 +566,24 @@
         document.getElementById('clothes-empty').style.display = clothes.length ? 'none' : '';
       }
 
-      // ==================== Tab 切换 ====================
-      function switchTab(tab) {
-        activeTab = tab;
-        document.querySelectorAll('#tab-nav button').forEach(function (b) {
-          b.classList.toggle('active', b.dataset.tab === tab);
-        });
-        ['basic', 'prompts', 'visuals', 'clothes', 'voice', 'publish'].forEach(function (t) {
-          document.getElementById('panel-' + t).style.display = t === tab ? '' : 'none';
-        });
+      // ==================== 发布预览 ====================
+      function renderPublishSummary() {
+        var s = document.getElementById('publish-summary');
+        var lines = [];
+        lines.push('<strong>' + LC.escapeHtml(document.getElementById('f-title').value || '(未填写标题)') + '</strong>');
+        lines.push('角色名: ' + LC.escapeHtml(document.getElementById('f-ai-name').value || '-') +
+                   ' · 目录名: ' + LC.escapeHtml(document.getElementById('f-resource-folder').value || '-'));
+        lines.push('立绘: 头像' + (isAvatarComplete() ? '✓' : '✗') + ' · 情绪 ' + uploadedEmotionCount() + '/' + EMOTION_SLOTS.length +
+                   ' · 服装 ' + clothes.length + ' 套' +
+                   ' · 语音: ' + (settings.tts_type ? TTS_LABELS[settings.tts_type] : '未设置'));
+        s.innerHTML = lines.join('<br>');
       }
 
-      // ==================== 加载 / 保存 ====================
+      // ==================== 编辑模式加载 ====================
       async function loadEditMode() {
         if (!editUid) return;
         try {
-          const page = await LC.api('/api/v1/pages/' + encodeURIComponent(editUid));
+          var page = await LC.api('/api/v1/pages/' + encodeURIComponent(editUid));
           existingPage = page;
           deepMerge(settings, page.settings || {});
           clothes = Array.isArray(settings.clothes) ? JSON.parse(JSON.stringify(settings.clothes)) : [];
@@ -304,20 +591,33 @@
           document.getElementById('form-hint').style.display = '';
           document.getElementById('form-hint').innerHTML =
             '正在编辑 <a href="/page/' + encodeURIComponent(page.uid) + '">' + LC.escapeHtml(page.title) + '</a> 的设定';
-          document.getElementById('url').value = page.url;
-          document.getElementById('tags').value = (page.tags || []).join(', ');
-          document.getElementById('info').value = settings.info || page.body || '';
-          if (page.avatar_url) {
-            const preview = document.getElementById('avatar-preview');
-            preview.style.display = '';
-            document.getElementById('avatar-preview-img').src = page.avatar_url;
-            document.getElementById('avatar-clear').style.display = '';
-          }
-          // 数据加载后重新渲染各字段与服装列表，回填编辑内容
-          renderFields('basic', 'fields-basic');
-          renderFields('prompts', 'fields-prompts');
-          renderFields('visuals', 'fields-visuals');
-          renderFields('voice', 'fields-voice');
+
+          // 回填基础信息
+          document.getElementById('f-resource-folder').value = settings.resource_folder || '';
+          document.getElementById('f-title').value = settings.title || page.title || '';
+          document.getElementById('f-ai-name').value = settings.ai_name || '';
+          document.getElementById('f-ai-subtitle').value = settings.ai_subtitle || '';
+          document.getElementById('f-user-name').value = settings.user_name || '用户';
+          document.getElementById('f-user-subtitle').value = settings.user_subtitle || '';
+          document.getElementById('f-info').value = settings.info || '';
+          document.getElementById('f-url').value = page.url;
+          document.getElementById('f-tags').value = (page.tags || []).join(', ');
+          document.getElementById('f-body').value = page.body || '';
+          document.getElementById('f-clothes-name').value = settings.clothes_name || '';
+
+          // 回填已有情绪立绘
+          var emotions = page.emotions || {};
+          Object.keys(emotions).forEach(function (name) {
+            if (emotionState[name]) {
+              emotionState[name].url = emotions[name];
+              emotionState[name].removed = false;
+            }
+          });
+
+          renderEmotionGrid();
+          renderVisuals();
+          renderPrompts();
+          renderVoice();
           renderClothes();
         } catch (err) {
           LC.toast('加载角色失败：' + err.message, 'error');
@@ -325,37 +625,53 @@
         }
       }
 
+      // ==================== 保存 ====================
       async function save() {
         if (!LC.requireLogin()) return;
-        if (!editUid && !LC.getUser()) return;
+        if (!validateStep(1) || !validateStep(2)) { gotoStep(!isBasicComplete() ? 1 : 2); return; }
 
-        // 信息字段与页面字段的映射：title ← title || ai_name；body ← info 字段（可被发布页覆盖）
-        const publishInfo = document.getElementById('info').value.trim();
-        const title = (settings.title || settings.ai_name || '').trim();
-        const info = publishInfo || (settings.info || '').trim();
-        const url = document.getElementById('url').value.trim();
-        if (!title) { switchTab('basic'); LC.toast('请填写角色名或显示标题', 'warning'); return; }
-        if (!info) { switchTab('publish'); LC.toast('请填写角色介绍', 'warning'); return; }
-        if (!url) { switchTab('publish'); LC.toast('请填写下载地址', 'warning'); return; }
-
+        settings.resource_folder = document.getElementById('f-resource-folder').value.trim();
+        settings.title = document.getElementById('f-title').value.trim();
+        settings.ai_name = document.getElementById('f-ai-name').value.trim();
+        settings.ai_subtitle = document.getElementById('f-ai-subtitle').value.trim();
+        settings.user_name = document.getElementById('f-user-name').value.trim() || '用户';
+        settings.user_subtitle = document.getElementById('f-user-subtitle').value.trim();
+        settings.info = document.getElementById('f-info').value.trim();
+        settings.clothes_name = document.getElementById('f-clothes-name').value.trim();
         settings.clothes = clothes;
-        const clearAvatar = !!settings.__clear_avatar;
-        delete settings.__clear_avatar;
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('body', info);
-        formData.append('url', url);
-        formData.append('tags', document.getElementById('tags').value);
-        formData.append('settings', JSON.stringify(settings));
-        const avatarFile = document.getElementById('avatar').files[0];
-        if (avatarFile) formData.append('avatar', avatarFile);
-        if (clearAvatar) formData.append('clear_avatar', 'true');
 
-        const btn = document.getElementById('save-btn');
+        var body = document.getElementById('f-body').value.trim() || settings.info || '';
+        var url = document.getElementById('f-url').value.trim();
+        if (!url) { setStep(4); document.getElementById('step-error').textContent = '请填写下载地址'; return; }
+
+        var formData = new FormData();
+        formData.append('title', settings.title || settings.ai_name);
+        formData.append('body', body);
+        formData.append('url', url);
+        formData.append('tags', document.getElementById('f-tags').value);
+        formData.append('settings', JSON.stringify(settings));
+        if (avatarFile) formData.append('avatar', avatarFile);
+        if (editUid && avatarRemoved) formData.append('clear_avatar', 'true');
+
+        // 情绪立绘：新文件 + 移除名单
+        var anyNew = false;
+        EMOTION_SLOTS.forEach(function (name) {
+          var s = emotionState[name];
+          if (s.file && !s.removed) {
+            formData.append('emotion_names', name);
+            formData.append('emotion_files', s.file, 'emotion_' + name + '.png');
+            anyNew = true;
+          }
+        });
+        if (editUid && removedEmotions.length) {
+          removedEmotions.forEach(function (name) { formData.append('remove_emotion_names', name); });
+        }
+
+        var btn = document.getElementById('save-btn');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 保存中…';
         try {
-          const data = editUid
+          var data = editUid
             ? await LC.api('/api/v1/pages/' + encodeURIComponent(editUid), { method: 'PUT', body: formData })
             : await LC.api('/api/v1/pages', { method: 'POST', body: formData });
           LC.toast(editUid ? '保存成功' : '创建成功！', 'success');
@@ -367,57 +683,68 @@
         }
       }
 
-      // ==================== 初始化 ====================
-      async function loadPopularTags() {
-        try {
-          const tags = await LC.api('/api/v1/pages/tags');
-          document.getElementById('popular-tags').innerHTML = tags.slice(0, 10).map(function (tag) {
-            return '<span class="tag-chip">' + LC.escapeHtml(tag.name) + '</span>';
-          }).join('');
-          document.querySelectorAll('#popular-tags .tag-chip').forEach(function (chip) {
-            chip.addEventListener('click', function () {
-              const input = document.getElementById('tags');
-              const current = input.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
-              const name = chip.textContent.trim();
-              if (!current.includes(name)) current.push(name);
-              input.value = current.join(', ');
-            });
-          });
-        } catch (err) { /* 忽略 */ }
-      }
-
-      document.querySelectorAll('#tab-nav button').forEach(function (btn) {
-        btn.addEventListener('click', function () { switchTab(btn.dataset.tab); });
+      // ==================== 事件绑定 ====================
+      document.querySelectorAll('.wizard-step').forEach(function (el) {
+        el.addEventListener('click', function () { gotoStep(parseInt(el.dataset.step, 10)); });
       });
-      document.getElementById('add-clothes').addEventListener('click', function () {
-        clothes.push({ name: '', prompt: '' });
-        renderClothes();
+      document.getElementById('prev-btn').addEventListener('click', function () { setStep(Math.max(1, currentStep - 1)); });
+      document.getElementById('next-btn').addEventListener('click', function () {
+        if (currentStep === 4) return;
+        if (!validateStep(currentStep)) return;
+        if (currentStep === 1 && !validateStep(1)) return;
+        if (currentStep === 2 && !validateStep(2)) return;
+        setStep(currentStep + 1);
       });
       document.getElementById('save-btn').addEventListener('click', save);
       document.getElementById('cancel-btn').addEventListener('click', function () {
         if (editUid) window.location.href = '/page/' + encodeURIComponent(editUid);
         else window.location.href = '/';
       });
-      document.getElementById('avatar').addEventListener('change', function () {
-        const file = this.files[0];
-        const preview = document.getElementById('avatar-preview');
-        if (file) {
-          preview.style.display = '';
-          document.getElementById('avatar-preview-img').src = URL.createObjectURL(file);
-        }
+      document.getElementById('add-clothes').addEventListener('click', function () {
+        clothes.push({ name: '', prompt: '' });
+        renderClothes();
       });
-      document.getElementById('avatar-clear-link').addEventListener('click', function (e) {
-        e.preventDefault();
-        document.getElementById('avatar').value = '';
-        document.getElementById('avatar-preview').style.display = 'none';
-        document.getElementById('avatar-clear').style.display = 'none';
-        settings.__clear_avatar = true;
+      // 发布页标签/URL/介绍变化时刷新预览
+      ['f-tags', 'f-url', 'f-body'].forEach(function (id) {
+        document.getElementById(id).addEventListener('input', renderPublishSummary);
+      });
+      // 基础信息变更时同步 settings 预览相关字段
+      ['f-resource-folder','f-title','f-ai-name','f-ai-subtitle','f-user-name','f-user-subtitle','f-info'].forEach(function (id) {
+        document.getElementById(id).addEventListener('input', function () {
+          if (id === 'f-resource-folder') settings.resource_folder = this.value.trim();
+          if (id === 'f-title') settings.title = this.value.trim();
+          if (id === 'f-ai-name') settings.ai_name = this.value.trim();
+          if (id === 'f-ai-subtitle') settings.ai_subtitle = this.value.trim();
+          if (id === 'f-user-name') settings.user_name = this.value.trim();
+          if (id === 'f-user-subtitle') settings.user_subtitle = this.value.trim();
+          if (id === 'f-info') settings.info = this.value.trim();
+          if (currentStep === 4) renderPublishSummary();
+        });
       });
 
-      renderFields('basic', 'fields-basic');
-      renderFields('prompts', 'fields-prompts');
-      renderFields('visuals', 'fields-visuals');
-      renderFields('voice', 'fields-voice');
+      async function loadPopularTags() {
+        try {
+          var tags = await LC.api('/api/v1/pages/tags');
+          document.getElementById('popular-tags').innerHTML = tags.slice(0, 10).map(function (tag) {
+            return '<span class="tag-chip">' + LC.escapeHtml(tag.name) + '</span>';
+          }).join('');
+          document.querySelectorAll('#popular-tags .tag-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+              var input = document.getElementById('f-tags');
+              var current = input.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+              var name = chip.textContent.trim();
+              if (current.indexOf(name) === -1) current.push(name);
+              input.value = current.join(', ');
+            });
+          });
+        } catch (err) { /* 忽略 */ }
+      }
+
+      // ==================== 初始化 ====================
+      renderEmotionGrid();
+      renderVisuals();
+      renderPrompts();
+      renderVoice();
       renderClothes();
       loadPopularTags();
       loadEditMode();

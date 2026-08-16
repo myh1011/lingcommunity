@@ -61,6 +61,7 @@ def _to_out(page: Page) -> PageOut:
         download_count=page.download_count or 0,
         status=page.status,
         settings=page.settings or {},
+        emotions=page.emotions or {},
         tags=[tag.name for tag in page.tags] if page.tags else [],
         tag_objects=[TagBase(id=tag.id, name=tag.name, color=tag.color) for tag in page.tags]
         if page.tags
@@ -130,6 +131,8 @@ async def create_page(
     tags: str = Form(""),
     settings: Optional[str] = Form(None),
     avatar: Optional[UploadFile] = File(None),
+    emotion_names: Optional[List[str]] = Form(None),
+    emotion_files: Optional[List[UploadFile]] = File(None),
     current_user: User = Depends(get_current_user),
     page_service: PageService = Depends(get_page_service),
 ):
@@ -152,6 +155,8 @@ async def create_page(
         avatar_file=avatar,
         tags=tag_list,
         settings=settings_dict,
+        emotion_names=emotion_names,
+        emotion_files=emotion_files,
     )
     return _to_out(page)
 
@@ -176,6 +181,10 @@ async def update_page(
     settings: Optional[str] = Form(None),
     avatar: Optional[UploadFile] = File(None),
     clear_avatar: bool = Form(False),
+    emotion_names: Optional[List[str]] = Form(None),
+    emotion_files: Optional[List[UploadFile]] = File(None),
+    clear_emotions: bool = Form(False),
+    remove_emotion_names: Optional[List[str]] = Form(None),
     current_user: User = Depends(get_current_user),
     page_service: PageService = Depends(get_page_service),
 ):
@@ -212,6 +221,10 @@ async def update_page(
         avatar_file=avatar,
         tags=tag_list,
         settings=settings_dict,
+        emotion_names=emotion_names,
+        emotion_files=emotion_files,
+        clear_emotions=clear_emotions,
+        remove_emotion_names=remove_emotion_names,
     )
     return _to_out(page)
 

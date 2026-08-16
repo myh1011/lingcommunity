@@ -31,6 +31,8 @@ class PageOut(PageCreate):
     download_count: int = 0
     status: str = "published"
     tag_objects: Optional[List[TagBase]] = None
+    # 情绪立绘：{"兴奋": "/static/uploads/emotions/xxx.png", ...}
+    emotions: Optional[Dict[str, str]] = None
 
     model_config = {"from_attributes": True}
 
