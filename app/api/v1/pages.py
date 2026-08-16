@@ -245,6 +245,57 @@ async def delete_page(
     return {"detail": "deleted"}
 
 
+# ---------- 导出角色包 ----------
+
+@router.get("/{uid}/export")
+async def export_page_zip(
+    uid: str,
+    page_service: PageService = Depends(get_page_service),
+):
+    """将已发布角色打包为 LingChat 格式 zip（供本地导入使用）。"""
+    from urllib.parse import quote
+
+    from fastapi.responses import Response
+
+    from app.services.export_service import (
+        build_character_zip,
+        file_ext_from,
+        read_local_upload,
+        safe_folder_name,
+    )
+
+    page = page_service.get_by_uid(uid)
+    if not page:
+        raise HTTPException(status_code=404, detail="角色不存在或已下架")
+
+    settings_dict = dict(page.settings or {})
+    folder = settings_dict.get("resource_folder") or safe_folder_name(page.title)
+
+    avatar_bytes = read_local_upload(page.avatar_url)
+    avatar_ext = file_ext_from(str(page.avatar_url)) if page.avatar_url else ".png"
+
+    emotions = {}
+    emotion_exts = {}
+    for name, url in (page.emotions or {}).items():
+        content = read_local_upload(url)
+        if content:
+            emotions[str(name)] = content
+            emotion_exts[str(name)] = file_ext_from(str(url))
+
+    if not avatar_bytes and not emotions:
+        raise HTTPException(status_code=400, detail="该角色没有可导出的图片文件")
+
+    buffer = build_character_zip(settings_dict, folder, avatar_bytes, avatar_ext, emotions, emotion_exts)
+    filename = quote(f"{folder}.zip")
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{filename}\"; filename*=UTF-8''{filename}",
+        },
+    )
+
+
 # ---------- 下载 ----------
 
 @router.get("/{uid}/download")

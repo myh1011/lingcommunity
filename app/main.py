@@ -15,6 +15,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.pages import router as pages_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.stats import router as stats_router
+from app.api.v1.export import router as export_router
 from app.config import settings
 from app.db.database import get_db
 from app.db.init_db import init_db
@@ -44,6 +45,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(pages_router, prefix="/api/v1/pages", tags=["pages"])
 app.include_router(stats_router, prefix="/api/v1/stats", tags=["stats"])
+app.include_router(export_router, prefix="/api/v1/export", tags=["export"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

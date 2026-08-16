@@ -87,7 +87,7 @@
         <div class="wizard-step active" data-step="1"><span class="step-no">1</span>基础信息</div>
         <div class="wizard-step" data-step="2"><span class="step-no">2</span>立绘上传</div>
         <div class="wizard-step" data-step="3"><span class="step-no">3</span>高级设置</div>
-        <div class="wizard-step" data-step="4"><span class="step-no">4</span>发布</div>
+        <div class="wizard-step" data-step="4"><span class="step-no">4</span>导出打包</div>
       </div>
 
       <!-- 第 1 步：基础信息 -->
@@ -168,25 +168,24 @@
         </details>
       </div>
 
-      <!-- 第 4 步：发布 -->
+      <!-- 第 4 步：导出打包 -->
       <div class="step-panel" id="panel-4" style="display:none">
         <div class="field">
-          <label>标签（逗号分隔）</label>
-          <input class="input" type="text" id="f-tags" placeholder="例如: AI助手, 中文, 智能对话">
-          <div id="popular-tags" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+          <label>打包预览</label>
+          <div id="publish-summary" class="hint" style="padding:14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)"></div>
         </div>
         <div class="field">
-          <label>下载地址（直链） <span style="color:var(--danger)">*</span></label>
-          <input class="input" type="text" id="f-url" placeholder="https://example.com/download.zip">
-          <div class="hint">必须是 http/https 直链。不知道怎么获取？<a href="/download_url" target="_blank">查看帮助</a></div>
-        </div>
-        <div class="field">
-          <label>公开介绍 <span style="color:var(--danger)">*</span></label>
-          <textarea class="textarea" id="f-body" rows="6" placeholder="展示在详情页的角色介绍，支持 Markdown。留空则使用基本信息中的简介。"></textarea>
-        </div>
-        <div class="field">
-          <label>发布预览</label>
-          <div id="publish-summary" class="hint" style="padding:12px;background:var(--surface);border-radius:10px;border:1px solid var(--border)"></div>
+          <label>打包格式说明</label>
+          <div class="hint" style="line-height:2">
+            点击「打包下载」后，所有文件将按 LingChat 角色目录格式打包为 zip：
+            <ul style="margin:6px 0;padding-left:20px">
+              <li><code>{目录名}/settings.yml</code> — 角色设定</li>
+              <li><code>{目录名}/ai模式{角色名}.txt</code> — 系统提示词</li>
+              <li><code>{目录名}/avatar/</code> — 头像与情绪立绘（哭泣→伤心、难为情→羞耻）</li>
+            </ul>
+            下载后解压到 LingChat 的 <code>data/game_data/characters/</code> 目录即可使用。
+            想分享到社区？请前往 <a href="/create">上传角色</a> 页面发布。
+          </div>
         </div>
       </div>
 
@@ -197,7 +196,7 @@
           <button class="btn small" id="cancel-btn" style="margin:0">取消</button>
           <button class="btn btn-secondary" id="prev-btn" style="display:none;margin:0"><i class="fas fa-arrow-left"></i> 上一步</button>
           <button class="btn btn-primary" id="next-btn" style="margin:0">下一步 <i class="fas fa-arrow-right"></i></button>
-          <button class="btn btn-primary" id="save-btn" style="display:none;margin:0"><i class="fas fa-save"></i> 保存角色</button>
+          <button class="btn btn-primary" id="save-btn" style="display:none;margin:0"><i class="fas fa-download"></i> 打包下载</button>
         </div>
       </div>
     </section>
@@ -570,10 +569,13 @@
       function renderPublishSummary() {
         var s = document.getElementById('publish-summary');
         var lines = [];
-        lines.push('<strong>' + LC.escapeHtml(document.getElementById('f-title').value || '(未填写标题)') + '</strong>');
+        lines.push('<strong>打包内容预览</strong>');
         lines.push('角色名: ' + LC.escapeHtml(document.getElementById('f-ai-name').value || '-') +
-                   ' · 目录名: ' + LC.escapeHtml(document.getElementById('f-resource-folder').value || '-'));
-        lines.push('立绘: 头像' + (isAvatarComplete() ? '✓' : '✗') + ' · 情绪 ' + uploadedEmotionCount() + '/' + EMOTION_SLOTS.length +
+                   ' · 标题: ' + LC.escapeHtml(document.getElementById('f-title').value || '-'));
+        lines.push('目录名: ' + LC.escapeHtml(document.getElementById('f-resource-folder').value || '-') +
+                   ' · 导出文件: ' + LC.escapeHtml((document.getElementById('f-resource-folder').value || 'character')) + '.zip');
+        lines.push('头像: ' + (isAvatarComplete() ? '已上传' : '未上传') +
+                   ' · 情绪立绘 ' + uploadedEmotionCount() + '/' + EMOTION_SLOTS.length +
                    ' · 服装 ' + clothes.length + ' 套' +
                    ' · 语音: ' + (settings.tts_type ? TTS_LABELS[settings.tts_type] : '未设置'));
         s.innerHTML = lines.join('<br>');
@@ -600,9 +602,6 @@
           document.getElementById('f-user-name').value = settings.user_name || '用户';
           document.getElementById('f-user-subtitle').value = settings.user_subtitle || '';
           document.getElementById('f-info').value = settings.info || '';
-          document.getElementById('f-url').value = page.url;
-          document.getElementById('f-tags').value = (page.tags || []).join(', ');
-          document.getElementById('f-body').value = page.body || '';
           document.getElementById('f-clothes-name').value = settings.clothes_name || '';
 
           // 回填已有情绪立绘
@@ -625,7 +624,7 @@
         }
       }
 
-      // ==================== 保存 ====================
+      // ==================== 打包导出 ====================
       async function save() {
         if (!LC.requireLogin()) return;
         if (!validateStep(1) || !validateStep(2)) { gotoStep(!isBasicComplete() ? 1 : 2); return; }
@@ -639,47 +638,57 @@
         settings.info = document.getElementById('f-info').value.trim();
         settings.clothes_name = document.getElementById('f-clothes-name').value.trim();
         settings.clothes = clothes;
-
-        var body = document.getElementById('f-body').value.trim() || settings.info || '';
-        var url = document.getElementById('f-url').value.trim();
-        if (!url) { setStep(4); document.getElementById('step-error').textContent = '请填写下载地址'; return; }
+        var folder = settings.resource_folder;
 
         var formData = new FormData();
-        formData.append('title', settings.title || settings.ai_name);
-        formData.append('body', body);
-        formData.append('url', url);
-        formData.append('tags', document.getElementById('f-tags').value);
         formData.append('settings', JSON.stringify(settings));
-        if (avatarFile) formData.append('avatar', avatarFile);
-        if (editUid && avatarRemoved) formData.append('clear_avatar', 'true');
+        if (avatarFile) {
+          formData.append('avatar', avatarFile);
+        } else if (editUid && existingPage && existingPage.avatar_url && !avatarRemoved) {
+          formData.append('avatar_url', existingPage.avatar_url);
+        }
 
-        // 情绪立绘：新文件 + 移除名单
-        var anyNew = false;
+        // 情绪立绘：新文件 + 已有（编辑模式）
+        var existingEmotions = {};
         EMOTION_SLOTS.forEach(function (name) {
           var s = emotionState[name];
           if (s.file && !s.removed) {
             formData.append('emotion_names', name);
             formData.append('emotion_files', s.file, 'emotion_' + name + '.png');
-            anyNew = true;
+          } else if (s.url && !s.removed) {
+            existingEmotions[name] = s.url;
           }
         });
-        if (editUid && removedEmotions.length) {
-          removedEmotions.forEach(function (name) { formData.append('remove_emotion_names', name); });
+        if (Object.keys(existingEmotions).length) {
+          formData.append('emotions_json', JSON.stringify(existingEmotions));
         }
 
         var btn = document.getElementById('save-btn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 保存中…';
+        btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px"></span> 打包中…';
         try {
-          var data = editUid
-            ? await LC.api('/api/v1/pages/' + encodeURIComponent(editUid), { method: 'PUT', body: formData })
-            : await LC.api('/api/v1/pages', { method: 'POST', body: formData });
-          LC.toast(editUid ? '保存成功' : '创建成功！', 'success');
-          setTimeout(function () { window.location.href = '/page/' + encodeURIComponent(data.uid); }, 600);
+          var res = await fetch('/api/v1/export/character', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + LC.getToken() },
+            body: formData,
+          });
+          var data = null;
+          try { data = await res.json(); } catch (e) { /* 非 JSON 响应 */ }
+          if (!res.ok) {
+            throw new Error((data && data.detail) || ('请求失败 (HTTP ' + res.status + ')'));
+          }
+          var blob = await res.blob();
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = folder + '.zip';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          LC.toast('角色包已生成，开始下载', 'success');
         } catch (err) {
-          LC.toast('保存失败：' + err.message, 'error');
+          LC.toast('打包失败：' + err.message, 'error');
           btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-save"></i> 保存角色';
+          btn.innerHTML = '<i class="fas fa-download"></i> 打包下载';
         }
       }
 
@@ -704,10 +713,6 @@
         clothes.push({ name: '', prompt: '' });
         renderClothes();
       });
-      // 发布页标签/URL/介绍变化时刷新预览
-      ['f-tags', 'f-url', 'f-body'].forEach(function (id) {
-        document.getElementById(id).addEventListener('input', renderPublishSummary);
-      });
       // 基础信息变更时同步 settings 预览相关字段
       ['f-resource-folder','f-title','f-ai-name','f-ai-subtitle','f-user-name','f-user-subtitle','f-info'].forEach(function (id) {
         document.getElementById(id).addEventListener('input', function () {
@@ -722,31 +727,12 @@
         });
       });
 
-      async function loadPopularTags() {
-        try {
-          var tags = await LC.api('/api/v1/pages/tags');
-          document.getElementById('popular-tags').innerHTML = tags.slice(0, 10).map(function (tag) {
-            return '<span class="tag-chip">' + LC.escapeHtml(tag.name) + '</span>';
-          }).join('');
-          document.querySelectorAll('#popular-tags .tag-chip').forEach(function (chip) {
-            chip.addEventListener('click', function () {
-              var input = document.getElementById('f-tags');
-              var current = input.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
-              var name = chip.textContent.trim();
-              if (current.indexOf(name) === -1) current.push(name);
-              input.value = current.join(', ');
-            });
-          });
-        } catch (err) { /* 忽略 */ }
-      }
-
       // ==================== 初始化 ====================
       renderEmotionGrid();
       renderVisuals();
       renderPrompts();
       renderVoice();
       renderClothes();
-      loadPopularTags();
       loadEditMode();
     })();
   </script>

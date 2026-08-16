@@ -10,3 +10,6 @@ pymysql
 pydantic
 python-dotenv
 python-multipart
+
+# 角色包导出（settings.yml）
+PyYAML
