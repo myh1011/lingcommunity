@@ -166,6 +166,16 @@
           <summary><i class="fas fa-microphone"></i> 语音设置 <i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>
           <div class="adv-body" id="adv-voice"></div>
         </details>
+        <details class="adv-group">
+          <summary><i class="fas fa-hand-pointer"></i> 触摸部位 (body_part) <i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>
+          <div class="adv-body">
+            <div class="field">
+              <label>body_part（YAML，可选）</label>
+              <textarea class="textarea" id="f-body-part" rows="12" style="font-family:monospace" placeholder="粘贴 LingChat 触摸部位配置，例如：&#10;head:&#10;  X: [0.42, 0.49, 0.57]&#10;  Y: [0.18, 0.33, 0.18]&#10;  clothesName: 默认&#10;  message: 摸了一下你的头&#10;  windowHeight: 625&#10;  windowWidth: 883"></textarea>
+              <div class="hint">body_part 定义角色可被触摸的身体区域（头/身体/耳朵/腿等）与提示语，留空则导出 body_part: null</div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <!-- 第 4 步：导出打包 -->
@@ -179,9 +189,10 @@
           <div class="hint" style="line-height:2">
             点击「打包下载」后，所有文件将按 LingChat 角色目录格式打包为 zip：
             <ul style="margin:6px 0;padding-left:20px">
-              <li><code>{目录名}/settings.yml</code> — 角色设定</li>
-              <li><code>{目录名}/ai模式{角色名}.txt</code> — 系统提示词</li>
-              <li><code>{目录名}/avatar/</code> — 头像与情绪立绘（哭泣→伤心、难为情→羞耻）</li>
+              <li><code>{目录名}/settings.yml</code> — 角色设定（含 body_part 触摸部位）</li>
+              <li><code>{目录名}/ai模式{角色名}.txt</code> — 系统提示词（可选）</li>
+              <li><code>{目录名}/avatar/</code> — 头像与情绪立绘（哭泣→伤心、难为情→羞耻，「正常」为服装列表缩略图）</li>
+              <li><code>{目录名}/avatar/{服装名}/</code> — 每套服装的专属立绘（可选，与 LingChat 服装子目录一致）</li>
             </ul>
             下载后解压到 LingChat 的 <code>data/game_data/characters/</code> 目录即可使用。
             想分享到社区？请前往 <a href="/create">上传角色</a> 页面发布。
@@ -422,6 +433,94 @@
         renderEmotionGrid();
       }
 
+      // ==================== 服装专属立绘（通用立绘集合） ====================
+      function newPortraitSet() {
+        var set = { avatar: { file: null, preview: '', url: '', removed: false }, emotions: {} };
+        EMOTION_SLOTS.forEach(function (name) {
+          set.emotions[name] = { file: null, preview: '', url: '', removed: false };
+        });
+        return set;
+      }
+      function portraitEntry(set, slot) {
+        return slot === 'avatar' ? set.avatar : set.emotions[slot];
+      }
+      function portraitDone(set, slot) {
+        var e = portraitEntry(set, slot);
+        return !!((e.file || e.url) && !e.removed);
+      }
+      function portraitCount(set) {
+        var n = 0;
+        EMOTION_SLOTS.forEach(function (name) { if (portraitDone(set, name)) n++; });
+        return n;
+      }
+      function applyPortraitFile(set, slot, file, isAvatar, afterChange) {
+        var e = portraitEntry(set, slot);
+        if (e.preview) URL.revokeObjectURL(e.preview);
+        e.file = file;
+        e.preview = URL.createObjectURL(file);
+        e.removed = false;
+        if (afterChange) afterChange();
+      }
+      function makePortraitTile(set, slot, label, isAvatar, afterChange) {
+        var tile = document.createElement('div');
+        var done = portraitDone(set, slot);
+        var e = portraitEntry(set, slot);
+        tile.className = 'emotion-tile' + (done ? ' done' : '');
+        var imgBox = document.createElement('div');
+        imgBox.className = 'tile-img';
+        if (done) {
+          var img = document.createElement('img');
+          img.src = e.preview || e.url;
+          img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'cover';
+          imgBox.appendChild(img);
+        } else {
+          imgBox.innerHTML = '<i class="fas fa-image"></i>';
+        }
+        var nameEl = document.createElement('div');
+        nameEl.className = 'tile-name';
+        nameEl.textContent = label;
+        tile.appendChild(imgBox);
+        tile.appendChild(nameEl);
+        var del = document.createElement('button');
+        del.className = 'tile-del';
+        del.innerHTML = '&times;';
+        del.type = 'button';
+        del.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          if (e.preview) { URL.revokeObjectURL(e.preview); e.preview = ''; }
+          e.file = null;
+          e.removed = true;
+          if (afterChange) afterChange();
+        });
+        tile.appendChild(del);
+        tile.addEventListener('click', function () {
+          var input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/png,image/jpeg,image/gif,image/webp';
+          input.onchange = function () {
+            var file = input.files && input.files[0];
+            if (file) applyPortraitFile(set, slot, file, isAvatar, afterChange);
+          };
+          input.click();
+        });
+        tile.addEventListener('dragover', function (ev) { ev.preventDefault(); tile.classList.add('dragover'); });
+        tile.addEventListener('dragleave', function () { tile.classList.remove('dragover'); });
+        tile.addEventListener('drop', function (ev) {
+          ev.preventDefault();
+          tile.classList.remove('dragover');
+          var file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+          if (file && file.type.indexOf('image/') === 0) applyPortraitFile(set, slot, file, isAvatar, afterChange);
+        });
+        return tile;
+      }
+      function buildPortraitGrid(container, set, afterChange) {
+        container.innerHTML = '';
+        container.appendChild(makePortraitTile(set, 'avatar', '头像', true, afterChange));
+        EMOTION_SLOTS.forEach(function (name) {
+          container.appendChild(makePortraitTile(set, name, name, false, afterChange));
+        });
+      }
+
       // ==================== 高级设置字段渲染 ====================
       function renderField(container, field) {
         var wrap = document.createElement('div');
@@ -544,6 +643,7 @@
         var list = document.getElementById('clothes-list');
         list.innerHTML = '';
         clothes.forEach(function (item, idx) {
+          if (!item.portraits) item.portraits = newPortraitSet();
           var box = document.createElement('div');
           box.style.cssText = 'padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px';
           box.innerHTML =
@@ -551,18 +651,39 @@
             '<strong style="font-size:14px">服装 #' + (idx + 1) + '</strong>' +
             '<button class="btn-mini danger" data-remove="' + idx + '" type="button"><i class="fas fa-times"></i> 删除</button></div>' +
             '<div class="field"><label>名称 (name)</label>' +
-            '<input class="input clothes-name" type="text" value="' + LC.escapeAttr(item.name || '') + '" placeholder="例如：夏日连衣裙"></div>' +
+            '<input class="input clothes-name" type="text" value="' + LC.escapeAttr(item.name || '') + '" placeholder="例如：泳装"></div>' +
             '<div class="field"><label>提示词 (prompt)</label>' +
-            '<textarea class="textarea clothes-prompt" rows="3" placeholder="描述该服装的提示词…">' + LC.escapeHtml(item.prompt || '') + '</textarea></div>';
+            '<textarea class="textarea clothes-prompt" rows="3" placeholder="描述该服装的提示词…">' + LC.escapeHtml(item.prompt || '') + '</textarea></div>' +
+            '<details class="adv-group" style="margin-top:6px">' +
+            '<summary style="font-size:13px"><i class="fas fa-images"></i> 该服装的立绘（可选）<span class="clothes-portrait-count" style="margin-left:8px"></span>' +
+            '<i class="fas fa-chevron-down" style="margin-left:auto"></i></summary>' +
+            '<div class="adv-body"><div class="emotion-grid clothes-grid"></div>' +
+            '<div class="hint">「正常」立绘会用作服装列表的缩略图；导出后位于 avatar/' + LC.escapeHtml(item.name || '服装名') + '/ 子目录</div></div>' +
+            '</details>';
           list.appendChild(box);
-          box.querySelector('.clothes-name').addEventListener('input', function (e) { clothes[idx].name = e.target.value; });
+          box.querySelector('.clothes-name').addEventListener('input', function (e) {
+            clothes[idx].name = e.target.value;
+            updateClothesPortraitCount(box, item);
+          });
           box.querySelector('.clothes-prompt').addEventListener('input', function (e) { clothes[idx].prompt = e.target.value; });
           box.querySelector('[data-remove]').addEventListener('click', function () {
             clothes.splice(idx, 1);
             renderClothes();
           });
+          buildPortraitGrid(box.querySelector('.clothes-grid'), item.portraits, function () {
+            updateClothesPortraitCount(box, item);
+          });
+          updateClothesPortraitCount(box, item);
         });
         document.getElementById('clothes-empty').style.display = clothes.length ? 'none' : '';
+      }
+
+      function updateClothesPortraitCount(box, item) {
+        var el = box.querySelector('.clothes-portrait-count');
+        if (!el) return;
+        var n = portraitCount(item.portraits);
+        var avatar = portraitDone(item.portraits, 'avatar');
+        el.textContent = '（头像' + (avatar ? '✓' : '✗') + ' · 情绪 ' + n + '/' + EMOTION_SLOTS.length + '）';
       }
 
       // ==================== 发布预览 ====================
@@ -576,8 +697,13 @@
                    ' · 导出文件: ' + LC.escapeHtml((document.getElementById('f-resource-folder').value || 'character')) + '.zip');
         lines.push('头像: ' + (isAvatarComplete() ? '已上传' : '未上传') +
                    ' · 情绪立绘 ' + uploadedEmotionCount() + '/' + EMOTION_SLOTS.length +
-                   ' · 服装 ' + clothes.length + ' 套' +
                    ' · 语音: ' + (settings.tts_type ? TTS_LABELS[settings.tts_type] : '未设置'));
+        var clothesLine = clothes.map(function (c) {
+          var n = c.portraits ? portraitCount(c.portraits) : 0;
+          return LC.escapeHtml(c.name || ('服装' + (clothes.indexOf(c) + 1))) + '(' + n + '图)';
+        }).join('、');
+        lines.push('服装 ' + clothes.length + ' 套' + (clothesLine ? '：' + clothesLine : '') +
+                   ' · body_part: ' + (document.getElementById('f-body-part').value.trim() ? '已配置' : '未配置'));
         s.innerHTML = lines.join('<br>');
       }
 
@@ -603,6 +729,10 @@
           document.getElementById('f-user-subtitle').value = settings.user_subtitle || '';
           document.getElementById('f-info').value = settings.info || '';
           document.getElementById('f-clothes-name').value = settings.clothes_name || '';
+          // body_part 回填：对象转为 YAML（JSON 是 YAML 子集）
+          if (settings.body_part && typeof settings.body_part === 'object') {
+            document.getElementById('f-body-part').value = JSON.stringify(settings.body_part, null, 2);
+          }
 
           // 回填已有情绪立绘
           var emotions = page.emotions || {};
@@ -638,6 +768,7 @@
         settings.info = document.getElementById('f-info').value.trim();
         settings.clothes_name = document.getElementById('f-clothes-name').value.trim();
         settings.clothes = clothes;
+        settings.body_part = document.getElementById('f-body-part').value;
         var folder = settings.resource_folder;
 
         var formData = new FormData();
@@ -662,6 +793,36 @@
         if (Object.keys(existingEmotions).length) {
           formData.append('emotions_json', JSON.stringify(existingEmotions));
         }
+
+        // 每套服装的专属立绘（avatar/<服装名>/ 子目录）
+        clothes.forEach(function (item, i) {
+          var p = item.portraits;
+          if (!p) return;
+          var name = (item.name || '').trim();
+          var hasAvatar = !!(p.avatar.file || (p.avatar.url && !p.avatar.removed));
+          var existing = {};
+          var hasAny = hasAvatar;
+          EMOTION_SLOTS.forEach(function (n) {
+            var e = p.emotions[n];
+            if (e.file && !e.removed) hasAny = true;
+            else if (e.url && !e.removed) existing[n] = e.url;
+          });
+          if (Object.keys(existing).length) hasAny = true;
+          if (!name || !hasAny) return;
+          formData.append('clothes.' + i + '.name', name);
+          if (p.avatar.file) formData.append('clothes.' + i + '.avatar', p.avatar.file);
+          else if (p.avatar.url && !p.avatar.removed) formData.append('clothes.' + i + '.avatar_url', p.avatar.url);
+          EMOTION_SLOTS.forEach(function (n) {
+            var e = p.emotions[n];
+            if (e.file && !e.removed) {
+              formData.append('clothes.' + i + '.emotion_names', n);
+              formData.append('clothes.' + i + '.emotion_files', e.file, 'clothes_' + i + '_' + n + '.png');
+            }
+          });
+          if (Object.keys(existing).length) {
+            formData.append('clothes.' + i + '.emotions_json', JSON.stringify(existing));
+          }
+        });
 
         var btn = document.getElementById('save-btn');
         btn.disabled = true;

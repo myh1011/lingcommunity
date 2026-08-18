@@ -169,8 +169,14 @@ def build_character_zip(
     avatar_ext: str,
     emotions: Dict[str, bytes],
     emotion_exts: Dict[str, str],
+    clothes_portraits: Optional[Dict[str, dict]] = None,
 ) -> io.BytesIO:
-    """构建 LingChat 格式的角色 zip（内存中）。"""
+    """构建 LingChat 格式的角色 zip（内存中）。
+
+    clothes_portraits: {服装名: {"avatar_bytes": bytes, "avatar_ext": str,
+                                 "emotions": {情绪: bytes}, "emotion_exts": {情绪: ext}}}
+    每套服装生成 avatar/<服装名>/ 子目录（与 LingChat 的服装立绘结构一致）。
+    """
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         # settings.yml
@@ -191,6 +197,17 @@ def build_character_zip(
             ext = emotion_exts.get(name, ".png")
             storage = emotion_storage_name(name)
             zf.writestr(f"{folder}/avatar/{storage}{ext}", data)
+
+        # avatar/<服装名>/（每套服装的专属立绘）
+        for clothes_name, portraits in (clothes_portraits or {}).items():
+            base = f"{folder}/avatar/{clothes_name}"
+            if portraits.get("avatar_bytes"):
+                zf.writestr(f"{base}/头像{portraits.get('avatar_ext', '.png')}", portraits["avatar_bytes"])
+            for name, data in (portraits.get("emotions") or {}).items():
+                if not data:
+                    continue
+                ext = (portraits.get("emotion_exts") or {}).get(name, ".png")
+                zf.writestr(f"{base}/{emotion_storage_name(name)}{ext}", data)
 
     buffer.seek(0)
     return buffer
